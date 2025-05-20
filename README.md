@@ -11,4 +11,5 @@ Check out our screens
 
 ---
 ERD
-
+---
+![APP UI PREVIEW](docs/NannyERD.png)
