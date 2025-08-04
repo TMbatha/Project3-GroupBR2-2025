@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router"; // ✅ Expo Router hook
 import wecareLogo from "../assets/wecare_logo.png";
 import {
   StyleSheet,
@@ -11,11 +12,14 @@ import {
   TextInput,
 } from "react-native";
 
-export default function Example() {
+export default function App() {
+  const router = useRouter(); // ✅ Router instance for navigation
+
   const [form, setForm] = useState({
     email: "",
     password: "",
   });
+
   return (
     <LinearGradient
       colors={["#CAC5C2", "#C743A2"]}
@@ -84,7 +88,11 @@ export default function Example() {
             <View style={styles.formAction}>
               <TouchableOpacity
                 onPress={() => {
-                  // handle onPress
+                  if (form.email && form.password) {
+                    router.push("/Screens/Sessions"); // ✅ Navigation fixed
+                  } else {
+                    console.log("Please enter email and password");
+                  }
                 }}
               >
                 <View style={styles.btn}>
@@ -95,7 +103,7 @@ export default function Example() {
 
             <TouchableOpacity
               onPress={() => {
-                // handle link
+                // TODO: Add forgot password logic
               }}
             >
               <Text style={styles.formLink}>Forgot password?</Text>
@@ -105,7 +113,7 @@ export default function Example() {
 
         <TouchableOpacity
           onPress={() => {
-            // handle link
+            // TODO: Add sign-up navigation
           }}
         >
           <Text style={styles.formFooter}>
@@ -136,7 +144,6 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: "#929292",
   },
-  /** Header */
   header: {
     alignItems: "center",
     justifyContent: "center",
@@ -148,7 +155,6 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     marginBottom: 36,
   },
-  /** Form */
   form: {
     flexGrow: 1,
     flexShrink: 1,
@@ -172,7 +178,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     letterSpacing: 0.15,
   },
-  /** Input */
   input: {
     marginBottom: 16,
   },
@@ -194,7 +199,6 @@ const styles = StyleSheet.create({
     borderColor: "#C9D3DB",
     borderStyle: "solid",
   },
-  /** Button */
   btn: {
     flexDirection: "row",
     alignItems: "center",
