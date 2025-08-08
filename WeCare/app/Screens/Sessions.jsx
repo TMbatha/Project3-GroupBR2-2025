@@ -1,5 +1,6 @@
 import React, { useState, useRef } from "react";
 import { StatusBar } from "expo-status-bar";
+import { useRouter } from "expo-router"; // Add this import
 import {
     View,
     Text,
@@ -99,6 +100,7 @@ const sessionsData = {
 };
 
 export default function Sessions({ navigation }) {
+    const router = useRouter(); // Add router hook
     const [selectedTab, setSelectedTab] = useState("Active");
     const [sidebarVisible, setSidebarVisible] = useState(false);
     const slideAnim = useRef(new Animated.Value(-sidebarWidth)).current;
@@ -123,6 +125,41 @@ export default function Sessions({ navigation }) {
         });
     };
 
+    // Handle sidebar navigation
+    const handleSidebarNavigation = (item) => {
+        closeSidebar();
+        
+        switch(item) {
+            case "Account":
+                // navigation.navigate("Account");
+                break;
+            case "My Kids":
+                // navigation.navigate("MyKids");
+                break;
+            case "Sessions":
+                // Already on Sessions page
+                break;
+            case "Book A Session":
+                // navigation.navigate("BookSession");
+                break;
+            case "Notifications":
+                // navigation.navigate("Notifications");
+                break;
+            case "Background Check":
+                router.push("/Screens/BackgroundCheck");
+                break;
+            case "Report":
+                // navigation.navigate("Report");
+                break;
+            case "Sign Out":
+                // Handle sign out logic
+                router.push("/");
+                break;
+            default:
+                break;
+        }
+    };
+
     const renderSession = ({ item }) => (
         <View style={styles.sessionCard}>
             <Image source={item.image} style={styles.sessionImage} />
@@ -143,6 +180,7 @@ export default function Sessions({ navigation }) {
         "Sessions",
         "Book A Session",
         "Notifications",
+        "Background Check", // Added Background Check here
     ];
 
     const bottomSidebarItems = ["Report", "Sign Out"];
@@ -157,7 +195,7 @@ export default function Sessions({ navigation }) {
                     <Ionicons name="menu" size={28} color="#000" />
                 </TouchableOpacity>
                 <Text style={styles.headerText}>SESSIONS</Text>
-                <TouchableOpacity>
+                <TouchableOpacity onPress={() => router.push("/Screens/BackgroundCheck")}>
                     <Ionicons name="notifications" size={28} color="#000" />
                 </TouchableOpacity>
             </View>
@@ -220,7 +258,7 @@ export default function Sessions({ navigation }) {
                         style={styles.sidebarHeader}
                         onPress={() => {
                             closeSidebar();
-                            navigation.navigate("Profile");
+                            navigation?.navigate("Profile");
                         }}
                         activeOpacity={0.7}
                     >
@@ -234,7 +272,11 @@ export default function Sessions({ navigation }) {
                     {/* Sidebar items */}
                     <View style={styles.sidebarItemsContainer}>
                         {topSidebarItems.map((item, index) => (
-                            <TouchableOpacity key={index} style={styles.sidebarItem}>
+                            <TouchableOpacity 
+                                key={index} 
+                                style={styles.sidebarItem}
+                                onPress={() => handleSidebarNavigation(item)}
+                            >
                                 <Text style={styles.sidebarItemText}>{item}</Text>
                             </TouchableOpacity>
                         ))}
@@ -246,7 +288,11 @@ export default function Sessions({ navigation }) {
                     {/* Bottom sidebar items */}
                     <View style={styles.sidebarBottomItemsContainer}>
                         {bottomSidebarItems.map((item, index) => (
-                            <TouchableOpacity key={index} style={styles.sidebarItem}>
+                            <TouchableOpacity 
+                                key={index} 
+                                style={styles.sidebarItem}
+                                onPress={() => handleSidebarNavigation(item)}
+                            >
                                 <Text style={styles.sidebarItemText}>{item}</Text>
                             </TouchableOpacity>
                         ))}
