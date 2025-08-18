@@ -148,6 +148,9 @@ export default function Sessions({ navigation }) {
             case "Background Check":
                 router.push("/Screens/BackgroundCheck");
                 break;
+            case "Children Information":
+                router.push("/Screens/MyChildren");
+                break;
             case "Report":
                 // navigation.navigate("Report");
                 break;
@@ -181,6 +184,7 @@ export default function Sessions({ navigation }) {
         "Book A Session",
         "Notifications",
         "Background Check", // Added Background Check here
+        "Children Information",  // Added Children Information here
     ];
 
     const bottomSidebarItems = ["Report", "Sign Out"];
