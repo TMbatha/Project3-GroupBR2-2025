@@ -80,7 +80,10 @@ export default function BackgroundCheck() {
             </View>
 
             <View style={styles.buttonContainer}>
-              <TouchableOpacity style={styles.submitButton}>
+              <TouchableOpacity 
+                style={styles.submitButton}
+                onPress={() => router.push("/Screens/DocumentsSubmitted")}
+              >
                 <Text style={styles.submitButtonText}>Submit</Text>
               </TouchableOpacity>
 
