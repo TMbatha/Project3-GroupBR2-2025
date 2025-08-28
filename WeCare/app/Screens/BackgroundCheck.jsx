@@ -54,24 +54,13 @@ export default function BackgroundCheck() {
   );
 
   return (
-    <LinearGradient
-      colors={["#D4C4C1", "#C05BA1"]}
-      start={{ x: 0.5, y: 0 }}
-      end={{ x: 0.5, y: 1 }}
-      style={{ flex: 1 }}
-    >
-      <SafeAreaView style={{ flex: 1, backgroundColor: "transparent" }}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity 
-            onPress={() => router.back()}
-            style={styles.backButton}
-          >
-            <Ionicons name="chevron-back" size={28} color="#FFF" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Background Check</Text>
-        </View>
-
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#D4C4C1" }}>
+      <LinearGradient
+        colors={["#D4C4C1", "#C05BA1"]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={{ flex: 1 }}
+      >
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
           {/* Main Content */}
           <View style={styles.content}>
@@ -96,27 +85,12 @@ export default function BackgroundCheck() {
             </View>
           </View>
         </ScrollView>
-      </SafeAreaView>
-    </LinearGradient>
+      </LinearGradient>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 30,
-  },
-  backButton: {
-    marginRight: 15,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: "600",
-    color: "#FFF",
-  },
   container: {
     flex: 1,
     paddingHorizontal: 25,
@@ -126,6 +100,7 @@ const styles = StyleSheet.create({
   },
   checkList: {
     marginBottom: 80,
+    paddingTop: 50, // Add some top padding since we removed the header
   },
   checkItem: {
     flexDirection: "row",
