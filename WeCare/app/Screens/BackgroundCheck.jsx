@@ -90,6 +90,7 @@ export default function BackgroundCheck() {
         );
       }
     } catch (error) {
+      console.log("Upload error:", error);
       Alert.alert(
         "Upload Error",
         "There was an error selecting the file. Please try again.",
@@ -98,13 +99,34 @@ export default function BackgroundCheck() {
     }
   };
 
+  // For testing purposes, add a function to simulate uploads
+  const simulateAllUploads = () => {
+    setCheckItems((prevItems) =>
+      prevItems.map((item) =>
+        item.disabled ? item : {
+          ...item,
+          status: "Uploaded ✓",
+          uploaded: true,
+          fileName: `${item.label.replace(/\s+/g, '_')}.pdf`,
+        }
+      )
+    );
+  };
+
   const canSubmit = () => {
     const uploadableItems = checkItems.filter((item) => !item.disabled);
-    return uploadableItems.every((item) => item.uploaded);
+    const allUploaded = uploadableItems.every((item) => item.uploaded);
+    console.log("Can submit check:", { uploadableItems: uploadableItems.length, allUploaded });
+    return allUploaded;
   };
 
   const handleSubmit = () => {
+    console.log("Submit button pressed");
+    console.log("Can submit:", canSubmit());
+    
     if (canSubmit()) {
+      console.log("Navigating to DocumentsSubmitted");
+      
       // Update the background check status
       setCheckItems((prevItems) =>
         prevItems.map((item) =>
@@ -112,13 +134,45 @@ export default function BackgroundCheck() {
         )
       );
 
-      // Navigate straight to DocumentsSubmitted
-      router.push("/Screens/DocumentsSubmitted");
+      // Try multiple navigation approaches
+      try {
+        // First try the Screens path
+        router.push("/Screens/DocumentsSubmitted");
+      } catch (error) {
+        console.log("Navigation error with /Screens/DocumentsSubmitted:", error);
+        try {
+          // Fallback to root level
+          router.push("/DocumentsSubmitted");
+        } catch (error2) {
+          console.log("Navigation error with /DocumentsSubmitted:", error2);
+          // Final fallback - just show an alert
+          Alert.alert(
+            "Success!",
+            "Documents submitted successfully! Background check is now under review.",
+            [
+              {
+                text: "OK",
+                onPress: () => router.push("/Screens/Sessions")
+              }
+            ]
+          );
+        }
+      }
     } else {
+      const uploadableItems = checkItems.filter((item) => !item.disabled);
+      const uploadedCount = uploadableItems.filter((item) => item.uploaded).length;
+      
       Alert.alert(
         "Incomplete Submission",
-        "Please upload all required documents before submitting.",
-        [{ text: "OK" }]
+        `Please upload all required documents before submitting. ${uploadedCount}/${uploadableItems.length} documents uploaded.`,
+        [
+          { text: "Cancel" },
+          { 
+            text: "Simulate Uploads (Testing)", 
+            onPress: simulateAllUploads,
+            style: "default"
+          }
+        ]
       );
     }
   };
@@ -136,6 +190,7 @@ export default function BackgroundCheck() {
         ]}
         onPress={() => !item.disabled && handleFileUpload(item.id)}
         disabled={item.disabled}
+        activeOpacity={item.disabled ? 1 : 0.7}
       >
         <View style={styles.statusContent}>
           {item.uploaded && !item.disabled && (
@@ -177,6 +232,18 @@ export default function BackgroundCheck() {
           style={styles.container}
           showsVerticalScrollIndicator={false}
         >
+          {/* Header for testing */}
+          <View style={styles.debugHeader}>
+            <TouchableOpacity
+              style={styles.testButton}
+              onPress={simulateAllUploads}
+            >
+              <Text style={styles.testButtonText}>
+                Test: Simulate All Uploads
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           {/* Main Content */}
           <View style={styles.content}>
             <View style={styles.checkList}>{checkItems.map(renderCheckItem)}</View>
@@ -189,7 +256,9 @@ export default function BackgroundCheck() {
                 ]}
                 onPress={handleSubmit}
               >
-                <Text style={styles.submitButtonText}>Submit</Text>
+                <Text style={styles.submitButtonText}>
+                  Submit {canSubmit() ? "✓" : `(${checkItems.filter(item => !item.disabled && item.uploaded).length}/${checkItems.filter(item => !item.disabled).length})`}
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -211,12 +280,28 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 25,
   },
+  debugHeader: {
+    paddingTop: 20,
+    paddingBottom: 10,
+    alignItems: "center",
+  },
+  testButton: {
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 15,
+  },
+  testButtonText: {
+    color: "#FFF",
+    fontSize: 12,
+    fontWeight: "500",
+  },
   content: {
     flex: 1,
   },
   checkList: {
     marginBottom: 80,
-    paddingTop: 50,
+    paddingTop: 30,
   },
   checkItem: {
     flexDirection: "row",

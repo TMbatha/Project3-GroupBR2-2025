@@ -1,7 +1,6 @@
-import React, { useState } from "react";
+import React from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import * as DocumentPicker from "expo-document-picker";
 import {
   StyleSheet,
   SafeAreaView,
@@ -12,78 +11,69 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-export default function BackgroundCheck() {
+export default function DocumentsSubmitted() {
   const router = useRouter();
 
-  const [checkItems, setCheckItems] = useState([
-    { id: 1, label: "Reference", status: "-- Upload --", uploaded: false, fileName: null },
-    { id: 2, label: "Police Clearance", status: "-- Upload --", uploaded: false, fileName: null },
-    { id: 3, label: "Driver Test", status: "-- Upload --", uploaded: false, fileName: null },
-    { id: 4, label: "Drivers License", status: "-- Upload --", uploaded: false, fileName: null },
-    { id: 5, label: "Background Check Status", status: "-- Pending --", uploaded: false, fileName: null, disabled: true }
-  ]);
-
-  const handleFileUpload = async (itemId) => {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: ["application/pdf", "image/*", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
-      copyToCacheDirectory: true,
-    });
-
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      const file = result.assets[0];
-      setCheckItems(prev =>
-        prev.map(item =>
-          item.id === itemId
-            ? { ...item, status: "Uploaded ✓", uploaded: true, fileName: file.name }
-            : item
-        )
-      );
-    }
-  };
-
-  const canSubmit = () => {
-    const uploadableItems = checkItems.filter(item => !item.disabled);
-    return uploadableItems.every(item => item.uploaded);
-  };
-
-  const handleSubmit = () => {
-    if (canSubmit()) {
-      router.push("/Screens/DocumentsSubmitted");
-    }
-  };
+  const submittedItems = [
+    {
+      id: 1,
+      label: "Reference",
+      status: "Submitted ✓",
+    },
+    {
+      id: 2,
+      label: "Police Clearance",
+      status: "Submitted ✓",
+    },
+    {
+      id: 3,
+      label: "Driver Test",
+      status: "Submitted ✓",
+    },
+    {
+      id: 4,
+      label: "Drivers License",
+      status: "Submitted ✓",
+    },
+    {
+      id: 5,
+      label: "Background Check Status",
+      status: "Under Review",
+    },
+  ];
 
   const renderCheckItem = (item) => (
     <View key={item.id} style={styles.checkItem}>
       <View style={styles.labelContainer}>
         <Text style={styles.checkLabel}>{item.label}</Text>
       </View>
-      <TouchableOpacity
-        style={[
-          styles.statusButton,
-          item.uploaded && styles.statusButtonUploaded,
-          item.disabled && styles.statusButtonDisabled
-        ]}
-        onPress={() => !item.disabled && handleFileUpload(item.id)}
-        disabled={item.disabled}
-      >
+      <View style={[styles.statusButton, styles.statusButtonSubmitted]}>
         <View style={styles.statusContent}>
-          {item.uploaded && !item.disabled && (
-            <Ionicons name="checkmark-circle" size={16} color="#4CAF50" style={styles.checkIcon} />
+          {item.status.includes("✓") && (
+            <Ionicons
+              name="checkmark-circle"
+              size={16}
+              color="#4CAF50"
+              style={styles.checkIcon}
+            />
+          )}
+          {item.status === "Under Review" && (
+            <Ionicons
+              name="time-outline"
+              size={16}
+              color="#FF9800"
+              style={styles.checkIcon}
+            />
           )}
           <Text style={[
             styles.statusText,
-            item.uploaded && !item.disabled && styles.statusTextUploaded,
-            item.disabled && styles.statusTextDisabled
+            item.status.includes("✓") && styles.statusTextSubmitted,
+            item.status === "Under Review" && styles.statusTextReview,
           ]}>
             {item.status}
           </Text>
         </View>
-        {item.fileName && (
-          <Text style={styles.fileName} numberOfLines={1}>
-            {item.fileName}
-          </Text>
-        )}
-      </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -95,28 +85,39 @@ export default function BackgroundCheck() {
         end={{ x: 0.5, y: 1 }}
         style={{ flex: 1 }}
       >
-        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.container}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Success Header */}
+          <View style={styles.header}>
+            <Ionicons name="checkmark-circle" size={80} color="#4CAF50" />
+            <Text style={styles.headerTitle}>Documents Submitted!</Text>
+            <Text style={styles.headerSubtitle}>
+              Your background check documents have been submitted successfully.
+              We'll review them and get back to you soon.
+            </Text>
+          </View>
+
+          {/* Main Content */}
           <View style={styles.content}>
             <View style={styles.checkList}>
-              {checkItems.map(renderCheckItem)}
+              {submittedItems.map(renderCheckItem)}
             </View>
 
             <View style={styles.buttonContainer}>
               <TouchableOpacity
-                style={[
-                  styles.submitButton,
-                  canSubmit() && styles.submitButtonEnabled
-                ]}
-                onPress={handleSubmit}
+                style={styles.backButton}
+                onPress={() => router.push("/Screens/Sessions")}
               >
-                <Text style={styles.submitButtonText}>Submit</Text>
+                <Text style={styles.backButtonText}>Back to Dashboard</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => router.back()}
+                style={styles.sessionsButton}
+                onPress={() => router.push("/Screens/Sessions")}
               >
-                <Text style={styles.cancelButtonText}>CANCEL</Text>
+                <Text style={styles.sessionsButtonText}>VIEW SESSIONS</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -127,10 +128,42 @@ export default function BackgroundCheck() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: 25 },
-  content: { flex: 1 },
-  checkList: { marginBottom: 80, paddingTop: 50 },
-  checkItem: { flexDirection: "row", alignItems: "center", marginBottom: 20, minHeight: 60 },
+  container: {
+    flex: 1,
+    paddingHorizontal: 25,
+  },
+  header: {
+    alignItems: "center",
+    paddingTop: 50,
+    paddingBottom: 30,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#FFF",
+    marginTop: 20,
+    textAlign: "center",
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: "#FFF",
+    marginTop: 10,
+    textAlign: "center",
+    lineHeight: 22,
+    opacity: 0.9,
+  },
+  content: {
+    flex: 1,
+  },
+  checkList: {
+    marginBottom: 40,
+  },
+  checkItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+    minHeight: 60,
+  },
   labelContainer: {
     backgroundColor: "rgba(199, 67, 162, 0.7)",
     paddingVertical: 18,
@@ -140,7 +173,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
   },
-  checkLabel: { fontSize: 16, fontWeight: "500", color: "#FFF" },
+  checkLabel: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#FFF",
+  },
   statusButton: {
     backgroundColor: "#FFF",
     paddingVertical: 12,
@@ -151,28 +188,56 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  statusButtonUploaded: { backgroundColor: "#E8F5E8" },
-  statusButtonDisabled: { backgroundColor: "#F5F5F5", opacity: 0.7 },
-  statusContent: { flexDirection: "row", alignItems: "center", justifyContent: "center" },
-  checkIcon: { marginRight: 5 },
-  statusText: { fontSize: 14, fontWeight: "400", color: "#999", textAlign: "center" },
-  statusTextUploaded: { color: "#4CAF50", fontWeight: "600" },
-  statusTextDisabled: { color: "#BBB" },
-  fileName: { fontSize: 11, color: "#666", marginTop: 2, maxWidth: 120 },
-  buttonContainer: { gap: 15, paddingBottom: 40 },
-  submitButton: {
-    backgroundColor: "rgba(199, 67, 162, 0.5)",
+  statusButtonSubmitted: {
+    backgroundColor: "#E8F5E8",
+  },
+  statusContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkIcon: {
+    marginRight: 5,
+  },
+  statusText: {
+    fontSize: 14,
+    fontWeight: "400",
+    color: "#999",
+    textAlign: "center",
+  },
+  statusTextSubmitted: {
+    color: "#4CAF50",
+    fontWeight: "600",
+  },
+  statusTextReview: {
+    color: "#FF9800",
+    fontWeight: "600",
+  },
+  buttonContainer: {
+    gap: 15,
+    paddingBottom: 40,
+  },
+  backButton: {
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
     paddingVertical: 18,
     borderRadius: 30,
     alignItems: "center",
   },
-  submitButtonEnabled: { backgroundColor: "rgba(199, 67, 162, 0.8)" },
-  submitButtonText: { fontSize: 16, fontWeight: "600", color: "#FFF" },
-  cancelButton: {
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#C743A2",
+  },
+  sessionsButton: {
     backgroundColor: "rgba(255, 255, 255, 0.3)",
     paddingVertical: 18,
     borderRadius: 30,
     alignItems: "center",
   },
-  cancelButtonText: { fontSize: 16, fontWeight: "600", color: "#FFF", letterSpacing: 1 },
+  sessionsButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#FFF",
+    letterSpacing: 1,
+  },
 });
