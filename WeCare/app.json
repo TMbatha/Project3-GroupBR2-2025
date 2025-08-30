@@ -1,6 +1,6 @@
 {
   "expo": {
-    "scheme": "wecare", 
+    "scheme": "wecare",
     "name": "WeCare",
     "slug": "WeCare",
     "version": "1.0.0",
@@ -21,7 +21,8 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.anonymous.WeCare"
     },
     "web": {
       "favicon": "./assets/favicon.png"
