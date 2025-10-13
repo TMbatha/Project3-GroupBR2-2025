@@ -7,118 +7,237 @@ import {
   View,
   Text,
   TouchableOpacity,
+  ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 export default function DocumentsSubmitted() {
   const router = useRouter();
 
-  return (
-    <LinearGradient
-      colors={["#D4C4C1", "#C05BA1"]}
-      start={{ x: 0.5, y: 0 }}
-      end={{ x: 0.5, y: 1 }}
-      style={{ flex: 1 }}
-    >
-      <SafeAreaView style={{ flex: 1, backgroundColor: "transparent" }}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity 
-            onPress={() => router.back()}
-            style={styles.backButton}
-          >
-            <Ionicons name="chevron-back" size={28} color="#FFF" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Background Check</Text>
-        </View>
+  const submittedItems = [
+    {
+      id: 1,
+      label: "Reference",
+      status: "Submitted ✓",
+    },
+    {
+      id: 2,
+      label: "Police Clearance",
+      status: "Submitted ✓",
+    },
+    {
+      id: 3,
+      label: "Driver Test",
+      status: "Submitted ✓",
+    },
+    {
+      id: 4,
+      label: "Drivers License",
+      status: "Submitted ✓",
+    },
+    {
+      id: 5,
+      label: "Background Check Status",
+      status: "Under Review",
+    },
+  ];
 
-        {/* Main Content */}
-        <View style={styles.container}>
-          <View style={styles.successContainer}>
-            {/* Success Card */}
-            <View style={styles.successCard}>
-              <View style={styles.checkmarkContainer}>
-                <Ionicons name="checkmark" size={40} color="#FFF" />
-              </View>
-              <Text style={styles.successTitle}>Documents Submitted</Text>
+  const renderCheckItem = (item) => (
+    <View key={item.id} style={styles.checkItem}>
+      <View style={styles.labelContainer}>
+        <Text style={styles.checkLabel}>{item.label}</Text>
+      </View>
+      <View style={[styles.statusButton, styles.statusButtonSubmitted]}>
+        <View style={styles.statusContent}>
+          {item.status.includes("✓") && (
+            <Ionicons
+              name="checkmark-circle"
+              size={16}
+              color="#4CAF50"
+              style={styles.checkIcon}
+            />
+          )}
+          {item.status === "Under Review" && (
+            <Ionicons
+              name="time-outline"
+              size={16}
+              color="#FF9800"
+              style={styles.checkIcon}
+            />
+          )}
+          <Text style={[
+            styles.statusText,
+            item.status.includes("✓") && styles.statusTextSubmitted,
+            item.status === "Under Review" && styles.statusTextReview,
+          ]}>
+            {item.status}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#D4C4C1" }}>
+      <LinearGradient
+        colors={["#D4C4C1", "#C05BA1"]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={{ flex: 1 }}
+      >
+        <ScrollView
+          style={styles.container}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Success Header */}
+          <View style={styles.header}>
+            <Ionicons name="checkmark-circle" size={80} color="#4CAF50" />
+            <Text style={styles.headerTitle}>Documents Submitted!</Text>
+            <Text style={styles.headerSubtitle}>
+              Your background check documents have been submitted successfully.
+              We'll review them and get back to you soon.
+            </Text>
+          </View>
+
+          {/* Main Content */}
+          <View style={styles.content}>
+            <View style={styles.checkList}>
+              {submittedItems.map(renderCheckItem)}
             </View>
 
-            {/* Done Button */}
-            <TouchableOpacity 
-              style={styles.doneButton}
-              onPress={() => router.push("/Screens/Sessions")}
-            >
-              <Text style={styles.doneButtonText}>Done</Text>
-            </TouchableOpacity>
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => router.push("/Screens/Sessions")}
+              >
+                <Text style={styles.backButtonText}>Back to Dashboard</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.sessionsButton}
+                onPress={() => router.push("/Screens/Sessions")}
+              >
+                <Text style={styles.sessionsButtonText}>VIEW SESSIONS</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </SafeAreaView>
-    </LinearGradient>
+        </ScrollView>
+      </LinearGradient>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 30,
-  },
-  backButton: {
-    marginRight: 15,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: "600",
-    color: "#FFF",
-  },
   container: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 40,
+    paddingHorizontal: 25,
   },
-  successContainer: {
+  header: {
     alignItems: "center",
-    width: "100%",
+    paddingTop: 50,
+    paddingBottom: 30,
   },
-  successCard: {
-    backgroundColor: "rgba(199, 67, 162, 0.8)",
-    borderRadius: 20,
-    paddingVertical: 40,
-    paddingHorizontal: 30,
-    alignItems: "center",
-    marginBottom: 60,
-    width: "100%",
-    maxWidth: 280,
-  },
-  checkmarkContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  successTitle: {
-    fontSize: 18,
-    fontWeight: "600",
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: "700",
     color: "#FFF",
+    marginTop: 20,
     textAlign: "center",
   },
-  doneButton: {
-    backgroundColor: "rgba(199, 67, 162, 0.8)",
-    paddingVertical: 15,
-    paddingHorizontal: 60,
-    borderRadius: 25,
-    minWidth: 120,
+  headerSubtitle: {
+    fontSize: 16,
+    color: "#FFF",
+    marginTop: 10,
+    textAlign: "center",
+    lineHeight: 22,
+    opacity: 0.9,
   },
-  doneButtonText: {
+  content: {
+    flex: 1,
+  },
+  checkList: {
+    marginBottom: 40,
+  },
+  checkItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+    minHeight: 60,
+  },
+  labelContainer: {
+    backgroundColor: "rgba(199, 67, 162, 0.7)",
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    borderTopLeftRadius: 30,
+    borderBottomLeftRadius: 30,
+    flex: 1,
+    justifyContent: "center",
+  },
+  checkLabel: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#FFF",
+  },
+  statusButton: {
+    backgroundColor: "#FFF",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderTopRightRadius: 30,
+    borderBottomRightRadius: 30,
+    minWidth: 140,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statusButtonSubmitted: {
+    backgroundColor: "#E8F5E8",
+  },
+  statusContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkIcon: {
+    marginRight: 5,
+  },
+  statusText: {
+    fontSize: 14,
+    fontWeight: "400",
+    color: "#999",
+    textAlign: "center",
+  },
+  statusTextSubmitted: {
+    color: "#4CAF50",
+    fontWeight: "600",
+  },
+  statusTextReview: {
+    color: "#FF9800",
+    fontWeight: "600",
+  },
+  buttonContainer: {
+    gap: 15,
+    paddingBottom: 40,
+  },
+  backButton: {
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    paddingVertical: 18,
+    borderRadius: 30,
+    alignItems: "center",
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#C743A2",
+  },
+  sessionsButton: {
+    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    paddingVertical: 18,
+    borderRadius: 30,
+    alignItems: "center",
+  },
+  sessionsButtonText: {
     fontSize: 16,
     fontWeight: "600",
     color: "#FFF",
-    textAlign: "center",
+    letterSpacing: 1,
   },
 });
