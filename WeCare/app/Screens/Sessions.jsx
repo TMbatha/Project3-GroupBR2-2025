@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import {
     View,
@@ -16,6 +17,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 
 const sidebarWidth = 235;
 const screenHeight = Dimensions.get("window").height;
+const router = useRouter();
 
 const sessionsData = {
     Active: [
@@ -188,8 +190,9 @@ export default function Sessions({ navigation }) {
             />
 
             {/* Floating Book Button */}
-            <TouchableOpacity style={styles.floatingBookButton}>
+            <TouchableOpacity style={styles.floatingBookButton} onPress={() => router.push("/Screens/Childsitting_session")}>
                 <Text style={styles.bookText}>+ BOOK</Text>
+                
             </TouchableOpacity>
 
             {/* Full screen dark overlay */}
