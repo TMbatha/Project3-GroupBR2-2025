@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router"; // Add this import
 import {
@@ -20,6 +21,7 @@ import {
 
 const sidebarWidth = 235;
 const screenHeight = Dimensions.get("window").height;
+const router = useRouter();
 
 const sessionsData = {
   Active: [
