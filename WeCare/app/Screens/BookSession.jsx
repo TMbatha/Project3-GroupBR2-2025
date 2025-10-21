@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Alert,
   Platform,
+  Modal,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -33,6 +34,8 @@ export default function BookSession() {
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [confirmationData, setConfirmationData] = useState(null);
   
   // Add Child Form state
   const [showAddChildForm, setShowAddChildForm] = useState(false);
@@ -283,37 +286,15 @@ export default function BookSession() {
     console.log('Selected driver name:', driverName);
     console.log('📋 Showing confirmation dialog...');
 
-    // Show confirmation dialog with booking details
-    Alert.alert(
-      'Confirm Booking',
-      `Please confirm your session booking:\n\n` +
-      `📅 Date: ${formatDate(sessionDate)}\n` +
-      `🕐 Time: ${formatTime(startTime)} - ${formatTime(endTime)}\n` +
-      `👶 Children: ${selectedChildrenNames}\n` +
-      `👤 Nanny: ${nannyName}\n` +
-      `🚗 Driver: ${driverName}\n` +
-      `💰 Payment: R${parseFloat(paymentAmount).toFixed(2)}\n\n` +
-      `Do you want to proceed with this booking?`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Confirm',
-          onPress: () => proceedWithBooking(),
-        },
-      ],
-      { cancelable: true }
-    );
-  };
-
-  const proceedWithBooking = async () => {
-    console.log('🚀 proceedWithBooking() called - Confirm button was clicked!');
-    setLoading(true);
-
-    try {
-      const bookingData = {
+    // Store confirmation data for modal
+    const confirmData = {
+      date: formatDate(sessionDate),
+      time: `${formatTime(startTime)} - ${formatTime(endTime)}`,
+      children: selectedChildrenNames,
+      nanny: nannyName,
+      driver: driverName,
+      payment: parseFloat(paymentAmount).toFixed(2),
+      bookingData: {
         parentId: parseInt(parentId),
         childIds: selectedChildren,
         sessionDate: formatDate(sessionDate),
@@ -322,11 +303,25 @@ export default function BookSession() {
         nannyId: parseInt(selectedNanny),
         driverId: selectedDriver ? parseInt(selectedDriver) : null,
         paymentAmount: parseFloat(paymentAmount),
-      };
+      }
+    };
+
+    setConfirmationData(confirmData);
+    setShowConfirmationModal(true);
+  };
+
+  const proceedWithBooking = async () => {
+    console.log('✅ User clicked Confirm - starting booking process...');
+    setShowConfirmationModal(false);
+    setLoading(true);
+
+    try {
+      const bookingData = confirmationData.bookingData;
 
       console.log('=== BOOKING SESSION ===');
       console.log('Booking data:', JSON.stringify(bookingData, null, 2));
       console.log('API URL:', 'http://localhost:8080/api/child-sitting-session/book');
+      console.log('📡 Sending booking request to backend...');
 
       const response = await fetch('http://localhost:8080/api/child-sitting-session/book', {
         method: 'POST',
@@ -336,11 +331,19 @@ export default function BookSession() {
         body: JSON.stringify(bookingData),
       });
 
+      console.log('📦 Response received from backend:');
       console.log('Response status:', response.status);
       console.log('Response ok:', response.ok);
+      console.log('Response headers:', response.headers);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Backend returned error:', errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
 
       const result = await response.json();
-      console.log('Response result:', JSON.stringify(result, null, 2));
+      console.log('✅ Response result:', JSON.stringify(result, null, 2));
 
       if (response.ok && result.success) {
         // Clear form
@@ -711,6 +714,56 @@ export default function BookSession() {
           </Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Custom Confirmation Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showConfirmationModal}
+        onRequestClose={() => setShowConfirmationModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Confirm Booking</Text>
+            
+            {confirmationData && (
+              <View style={styles.modalContent}>
+                <Text style={styles.modalText}>Please confirm your session booking:</Text>
+                
+                <View style={styles.confirmationDetails}>
+                  <Text style={styles.detailItem}>📅 Date: {confirmationData.date}</Text>
+                  <Text style={styles.detailItem}>🕐 Time: {confirmationData.time}</Text>
+                  <Text style={styles.detailItem}>👶 Children: {confirmationData.children}</Text>
+                  <Text style={styles.detailItem}>👤 Nanny: {confirmationData.nanny}</Text>
+                  <Text style={styles.detailItem}>🚗 Driver: {confirmationData.driver}</Text>
+                  <Text style={styles.detailItem}>💰 Payment: R{confirmationData.payment}</Text>
+                </View>
+                
+                <Text style={styles.modalQuestion}>Do you want to proceed with this booking?</Text>
+              </View>
+            )}
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => {
+                  console.log('❌ Booking cancelled by user');
+                  setShowConfirmationModal(false);
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.confirmButton}
+                onPress={proceedWithBooking}
+              >
+                <Text style={styles.confirmButtonText}>Confirm</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -944,5 +997,89 @@ const styles = StyleSheet.create({
     color: '#92400E',
     textAlign: 'center',
     fontWeight: '500',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#D81B60',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  modalContent: {
+    marginBottom: 24,
+  },
+  modalText: {
+    fontSize: 16,
+    color: '#374151',
+    textAlign: 'center',
+    marginBottom: 16,
+    fontWeight: '500',
+  },
+  confirmationDetails: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  detailItem: {
+    fontSize: 14,
+    color: '#1F2937',
+    marginBottom: 8,
+    fontWeight: '500',
+  },
+  modalQuestion: {
+    fontSize: 16,
+    color: '#374151',
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: '#E5E7EB',
+    padding: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: '#6B7280',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  confirmButton: {
+    flex: 1,
+    backgroundColor: '#D81B60',
+    padding: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  confirmButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
