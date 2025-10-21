@@ -12,6 +12,9 @@ import {
   Dimensions,
   Animated,
   Pressable,
+  Platform,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -22,107 +25,61 @@ import {
 const sidebarWidth = 235;
 const screenHeight = Dimensions.get("window").height;
 
-const sessionsData = {
-  Active: [
-    {
-      id: "1",
-      name: "Buhle Zungu",
-      session: "#1124",
-      date: "12 May 2025",
-      nanny: "Miss SiphoKazi",
-      driver: "Mr Davids",
-      image: require("../../assets/buhle.jpg"),
-    },
-    {
-      id: "2",
-      name: "Mbali Zungu",
-      session: "#1124",
-      date: "22 May 2025",
-      nanny: "Miss SiphoKazi",
-      driver: "Mr Davids",
-      image: require("../../assets/mbali.jpg"),
-    },
-    {
-      id: "3",
-      name: "Buhle Zungu",
-      session: "#1124",
-      date: "12 May 2025",
-      nanny: "Miss SiphoKazi",
-      driver: "Mr Davids",
-      image: require("../../assets/buhle.jpg"),
-    },
-    {
-      id: "4",
-      name: "Mbali Zungu",
-      session: "#1124",
-      date: "22 May 2025",
-      nanny: "Miss SiphoKazi",
-      driver: "Mr Davids",
-      image: require("../../assets/mbali.jpg"),
-    },
-    {
-      id: "5",
-      name: "Buhle Zungu",
-      session: "#1124",
-      date: "12 May 2025",
-      nanny: "Miss SiphoKazi",
-      driver: "Mr Davids",
-      image: require("../../assets/buhle.jpg"),
-    },
-    {
-      id: "6",
-      name: "Mbali Zungu",
-      session: "#1124",
-      date: "22 May 2025",
-      nanny: "Miss SiphoKazi",
-      driver: "Mr Davids",
-      image: require("../../assets/mbali.jpg"),
-    },
-  ],
-  Upcoming: [
-    {
-      id: "3",
-      name: "Thabo Mokoena",
-      session: "#1125",
-      date: "15 May 2025",
-      nanny: "Mrs Ndlovu",
-      driver: "Mr Smith",
-      image: require("../../assets/thabo.jpg"),
-    },
-  ],
-  Closed: [
-    {
-      id: "4",
-      name: "Lindiwe Ngcobo",
-      session: "#1123",
-      date: "10 May 2025",
-      nanny: "Miss Dlamini",
-      driver: "Mr Jones",
-      image: require("../../assets/lindiwe.jpg"),
-    },
-  ],
-};
-
 export default function Sessions({ navigation }) {
   const router = useRouter(); // Add router hook
   const [selectedTab, setSelectedTab] = useState("Active");
   const [sidebarVisible, setSidebarVisible] = useState(false);
   const [userRole, setUserRole] = useState(null); // Store user role
+  const [nannyId, setNannyId] = useState(null); // Store nanny ID
+  const [sessions, setSessions] = useState([]); // Store sessions from database
+  const [loading, setLoading] = useState(true); // Loading state
   const slideAnim = useRef(new Animated.Value(-sidebarWidth)).current;
   const insets = useSafeAreaInsets();
 
-  // Fetch user role from AsyncStorage
+  // Fetch user data and sessions from database
   useEffect(() => {
-    const getUserRole = async () => {
+    const getUserDataAndFetchSessions = async () => {
       try {
         const role = await AsyncStorage.getItem('userRole');
+        const userId = await AsyncStorage.getItem('userId');
         setUserRole(role);
+        
+        if (role === 'nanny' && userId) {
+          setNannyId(parseInt(userId));
+          await fetchNannySessions(userId);
+        } else {
+          setLoading(false);
+        }
       } catch (error) {
-        console.error('Error fetching user role:', error);
+        console.error('Error fetching user data:', error);
+        setLoading(false);
       }
     };
-    getUserRole();
+    getUserDataAndFetchSessions();
   }, []);
+
+  // Fetch sessions assigned to the nanny
+  const fetchNannySessions = async (nannyId) => {
+    try {
+      const baseUrl = Platform.OS === 'web' ? 'http://localhost:8080' : 'http://10.0.2.2:8080';
+      const response = await fetch(`${baseUrl}/api/nanny/sessions/${nannyId}`);
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Nanny sessions fetched:', result);
+        setSessions(result);
+      } else {
+        Alert.alert('Error', 'Failed to load sessions');
+        setSessions([]);
+      }
+    } catch (error) {
+      console.error('Error fetching nanny sessions:', error);
+      Alert.alert('Error', 'Could not connect to server');
+      setSessions([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const openSidebar = () => {
     setSidebarVisible(true);
@@ -181,17 +138,35 @@ export default function Sessions({ navigation }) {
     }
   };
 
+  // Categorize sessions by status/date
+  const categorizedSessions = {
+    Active: sessions.filter(s => s.status === 'Confirmed' && new Date(s.sessionDate) >= new Date()),
+    Upcoming: sessions.filter(s => s.status === 'Pending'),
+    Closed: sessions.filter(s => new Date(s.sessionDate) < new Date() && s.status === 'Confirmed'),
+  };
+
   const renderSession = ({ item }) => (
     <View style={styles.sessionCard}>
-      <Image source={item.image} style={styles.sessionImage} />
-      <View style={styles.sessionInfo}>
-        <Text style={styles.sessionName}>{item.name}</Text>
-        <Text style={styles.sessionDetails}>Session {item.session}</Text>
-        <Text style={styles.sessionDetails}>{item.date}</Text>
-        <Text style={styles.sessionDetails}>Nanny: {item.nanny}</Text>
-        <Text style={styles.sessionDetails}>Driver: {item.driver}</Text>
+      <View style={styles.sessionImagePlaceholder}>
+        <Text style={styles.sessionImageText}>👶</Text>
       </View>
-      <View style={styles.statusIndicator} />
+      <View style={styles.sessionInfo}>
+        <Text style={styles.sessionName}>
+          {item.children && item.children.length > 0 ? item.children.join(', ') : 'No children'}
+        </Text>
+        <Text style={styles.sessionDetails}>Session #{item.id}</Text>
+        <Text style={styles.sessionDetails}>📅 {item.sessionDate}</Text>
+        <Text style={styles.sessionDetails}>🕐 {item.startTime} - {item.endTime}</Text>
+        {item.parentName && (
+          <Text style={styles.sessionDetails}>👤 Parent: {item.parentName}</Text>
+        )}
+        {item.driverName && (
+          <Text style={styles.sessionDetails}>🚗 Driver: {item.driverName}</Text>
+        )}
+      </View>
+      <View style={[styles.statusIndicator, { 
+        backgroundColor: item.status === 'Confirmed' ? '#4CAF50' : '#FF9500' 
+      }]} />
     </View>
   );
 
@@ -252,12 +227,24 @@ export default function Sessions({ navigation }) {
       </View>
 
       {/* Sessions List */}
-      <FlatList
-        data={sessionsData[selectedTab]}
-        renderItem={renderSession}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
-      />
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#D81B60" />
+          <Text style={styles.loadingText}>Loading sessions...</Text>
+        </View>
+      ) : categorizedSessions[selectedTab].length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>No {selectedTab.toLowerCase()} sessions</Text>
+          <Text style={styles.emptySubtext}>Sessions assigned to you will appear here</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={categorizedSessions[selectedTab]}
+          renderItem={renderSession}
+          keyExtractor={(item) => item.id.toString()}
+          contentContainerStyle={styles.list}
+        />
+      )}
 
       {/* Floating Book Button */}
       <TouchableOpacity 
@@ -527,5 +514,52 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 18,
     fontFamily: "Inter",
+  },
+
+  sessionImagePlaceholder: {
+    width: 70,
+    height: 70,
+    borderRadius: 10,
+    marginRight: 20,
+    backgroundColor: '#F0F0F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  sessionImageText: {
+    fontSize: 32,
+  },
+
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#666',
+  },
+
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 8,
+  },
+
+  emptySubtext: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
   },
 });

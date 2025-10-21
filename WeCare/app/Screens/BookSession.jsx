@@ -47,8 +47,12 @@ export default function BookSession() {
   const getParentIdAndFetchData = async () => {
     try {
       const storedParentId = await AsyncStorage.getItem('userId');
+      console.log('Stored parent ID from AsyncStorage:', storedParentId);
+      
       if (storedParentId) {
-        setParentId(parseInt(storedParentId));
+        const parsedId = parseInt(storedParentId);
+        setParentId(parsedId);
+        console.log('Parent ID set to:', parsedId);
         await fetchChildren(storedParentId);
       } else {
         Alert.alert('Error', 'No parent session found. Please login again.');
@@ -85,6 +89,11 @@ export default function BookSession() {
       return;
     }
 
+    if (!parentId) {
+      Alert.alert('Error', 'Parent session not found. Please login again.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -92,12 +101,12 @@ export default function BookSession() {
         childName: newChildName,
         childSurname: newChildSurname,
         childAge: parseInt(newChildAge),
-        parent: {
-          parentId: parentId
-        }
+        parentId: parseInt(parentId) // Send parentId directly
       };
 
-      const response = await fetch('http://localhost:8080/api/child/create', {
+      console.log('Adding child with data:', JSON.stringify(childData));
+
+      const response = await fetch(`http://localhost:8080/api/child/create?parentId=${parseInt(parentId)}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -116,10 +125,12 @@ export default function BookSession() {
         setShowAddChildForm(false);
         
         // Refresh children list
-        await fetchChildren();
+        await fetchChildren(parentId);
         
-        Alert.alert('Success', `${newChild.childName} has been added!`);
+        Alert.alert('Success', `Child added successfully!`);
       } else {
+        const errorData = await response.text();
+        console.error('Error response:', errorData);
         Alert.alert('Error', 'Failed to add child');
       }
     } catch (error) {
@@ -189,37 +200,121 @@ export default function BookSession() {
   };
 
   const handleBookSession = async () => {
+    console.log('=== BOOK SESSION BUTTON CLICKED ===');
+    console.log('Selected Children:', selectedChildren);
+    console.log('Session Date:', sessionDate);
+    console.log('Start Time:', startTime);
+    console.log('End Time:', endTime);
+    console.log('Selected Nanny:', selectedNanny);
+    console.log('Payment Amount:', paymentAmount);
+    
     // Validation
     if (selectedChildren.length === 0) {
+      console.log('❌ Validation failed: No children selected');
       Alert.alert('Error', 'Please select at least one child');
       return;
     }
+    console.log('✓ Children validation passed');
+    
     if (!sessionDate) {
+      console.log('❌ Validation failed: No session date');
       Alert.alert('Error', 'Please select a session date');
       return;
     }
+    console.log('✓ Session date validation passed');
+    
     if (!startTime) {
+      console.log('❌ Validation failed: No start time');
       Alert.alert('Error', 'Please select a start time');
       return;
     }
+    console.log('✓ Start time validation passed');
+    
     if (!endTime) {
+      console.log('❌ Validation failed: No end time');
       Alert.alert('Error', 'Please select an end time');
       return;
     }
+    console.log('✓ End time validation passed');
+    
     if (!selectedNanny) {
+      console.log('❌ Validation failed: No nanny selected');
       Alert.alert('Error', 'Please select a nanny');
       return;
     }
+    console.log('✓ Nanny validation passed');
+    
     if (!paymentAmount || parseFloat(paymentAmount) <= 0) {
+      console.log('❌ Validation failed: Invalid payment amount');
       Alert.alert('Error', 'Please enter a valid payment amount');
       return;
     }
+    console.log('✓ Payment amount validation passed');
+    console.log('✓ All validations passed - preparing confirmation dialog');
 
+    console.log('✓ Payment amount validation passed');
+    console.log('✓ All validations passed - preparing confirmation dialog');
+
+    // Get selected children names
+    const selectedChildrenNames = children
+      .filter(child => selectedChildren.includes(child.childId))
+      .map(child => `${child.childName} ${child.childSurname}`)
+      .join(', ');
+    
+    console.log('Selected children names:', selectedChildrenNames);
+
+    // Get selected nanny name
+    const selectedNannyObj = nannies.find(n => n.nannyId === parseInt(selectedNanny));
+    const nannyName = selectedNannyObj 
+      ? `${selectedNannyObj.nannyName} ${selectedNannyObj.nannySurname}` 
+      : 'Unknown';
+    
+    console.log('Selected nanny name:', nannyName);
+
+    // Get selected driver name (if any)
+    let driverName = 'No driver';
+    if (selectedDriver) {
+      const selectedDriverObj = drivers.find(d => d.driverId === parseInt(selectedDriver));
+      driverName = selectedDriverObj 
+        ? `${selectedDriverObj.driverName} ${selectedDriverObj.driverSurname}` 
+        : 'Unknown';
+    }
+    
+    console.log('Selected driver name:', driverName);
+    console.log('📋 Showing confirmation dialog...');
+
+    // Show confirmation dialog with booking details
+    Alert.alert(
+      'Confirm Booking',
+      `Please confirm your session booking:\n\n` +
+      `📅 Date: ${formatDate(sessionDate)}\n` +
+      `🕐 Time: ${formatTime(startTime)} - ${formatTime(endTime)}\n` +
+      `👶 Children: ${selectedChildrenNames}\n` +
+      `👤 Nanny: ${nannyName}\n` +
+      `🚗 Driver: ${driverName}\n` +
+      `💰 Payment: R${parseFloat(paymentAmount).toFixed(2)}\n\n` +
+      `Do you want to proceed with this booking?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Confirm',
+          onPress: () => proceedWithBooking(),
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const proceedWithBooking = async () => {
+    console.log('🚀 proceedWithBooking() called - Confirm button was clicked!');
     setLoading(true);
 
     try {
       const bookingData = {
-        parentId: parentId,
+        parentId: parseInt(parentId),
         childIds: selectedChildren,
         sessionDate: formatDate(sessionDate),
         sessionStartTime: formatTime(startTime),
@@ -229,7 +324,9 @@ export default function BookSession() {
         paymentAmount: parseFloat(paymentAmount),
       };
 
-      console.log('Booking data:', bookingData);
+      console.log('=== BOOKING SESSION ===');
+      console.log('Booking data:', JSON.stringify(bookingData, null, 2));
+      console.log('API URL:', 'http://localhost:8080/api/child-sitting-session/book');
 
       const response = await fetch('http://localhost:8080/api/child-sitting-session/book', {
         method: 'POST',
@@ -239,12 +336,25 @@ export default function BookSession() {
         body: JSON.stringify(bookingData),
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+
       const result = await response.json();
+      console.log('Response result:', JSON.stringify(result, null, 2));
 
       if (response.ok && result.success) {
+        // Clear form
+        setSelectedChildren([]);
+        setSessionDate(null);
+        setStartTime(null);
+        setEndTime(null);
+        setSelectedNanny('');
+        setSelectedDriver('');
+        setPaymentAmount('');
+        
         Alert.alert(
           'Success',
-          `Session booked successfully!\n\nNanny: ${result.nannyName}\n${result.driverName ? `Driver: ${result.driverName}` : ''}`,
+          `Session booked successfully!\n\nSession ID: ${result.sessionId}\nNanny: ${result.nannyName}\n${result.driverName ? `Driver: ${result.driverName}` : ''}`,
           [
             {
               text: 'OK',
@@ -253,11 +363,12 @@ export default function BookSession() {
           ]
         );
       } else {
+        console.error('Booking failed:', result.message);
         Alert.alert('Error', result.message || 'Failed to book session');
       }
     } catch (error) {
       console.error('Error booking session:', error);
-      Alert.alert('Error', 'Could not connect to server');
+      Alert.alert('Error', 'Could not connect to server. Make sure backend is running.');
     } finally {
       setLoading(false);
     }
@@ -278,8 +389,9 @@ export default function BookSession() {
           <View style={styles.sectionHeader}>
             <Text style={styles.label}>Select Child(ren) *</Text>
             <TouchableOpacity
-              style={styles.addChildButton}
-              onPress={() => setShowAddChildForm(!showAddChildForm)}
+              style={[styles.addChildButton, !parentId && styles.addChildButtonDisabled]}
+              onPress={() => parentId && setShowAddChildForm(!showAddChildForm)}
+              disabled={!parentId}
             >
               <Text style={styles.addChildButtonText}>
                 {showAddChildForm ? '− Cancel' : '+ Add Child'}
@@ -664,6 +776,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 3,
+  },
+  addChildButtonDisabled: {
+    backgroundColor: '#9CA3AF',
+    shadowOpacity: 0.1,
   },
   addChildButtonText: {
     color: '#FFFFFF',
