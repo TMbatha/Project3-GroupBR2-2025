@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router"; // ✅ Expo Router hook
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import wecareLogo from "../assets/wecare_logo.png";
 import {
   StyleSheet,
@@ -40,8 +41,17 @@ export default function App() {
       console.log("Login result:", result);
 
       if (response.ok && result.success) {
-        // Store user info if needed (you can use AsyncStorage later)
+        // Store user info in AsyncStorage for session persistence
         console.log("User logged in:", result.role, result.firstName);
+        
+        try {
+          await AsyncStorage.setItem('userId', result.id.toString());
+          await AsyncStorage.setItem('userRole', result.role);
+          await AsyncStorage.setItem('userName', result.firstName);
+          console.log("User info saved to AsyncStorage:", result.id, result.role);
+        } catch (storageError) {
+          console.error("Error saving to AsyncStorage:", storageError);
+        }
         
         // Role-based navigation
         let navigationPath = "/Screens/Sessions"; // Default for parent
