@@ -390,7 +390,9 @@ export default function BookSession() {
         {/* Select Children */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.label}>Select Child(ren) *</Text>
+            <Text style={[styles.label, selectedChildren.length === 0 && styles.requiredField]}>
+              Select Child(ren) * {selectedChildren.length === 0 && '(Required)'}
+            </Text>
             <TouchableOpacity
               style={[styles.addChildButton, !parentId && styles.addChildButtonDisabled]}
               onPress={() => parentId && setShowAddChildForm(!showAddChildForm)}
@@ -401,6 +403,15 @@ export default function BookSession() {
               </Text>
             </TouchableOpacity>
           </View>
+          
+          {/* Selection Summary */}
+          {selectedChildren.length > 0 && (
+            <View style={styles.selectionSummary}>
+              <Text style={styles.selectionText}>
+                ✓ {selectedChildren.length} child{selectedChildren.length > 1 ? 'ren' : ''} selected
+              </Text>
+            </View>
+          )}
 
           {/* Add Child Form */}
           {showAddChildForm && (
@@ -1080,6 +1091,23 @@ const styles = StyleSheet.create({
   confirmButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  requiredField: {
+    color: '#DC2626',
+    fontWeight: '600',
+  },
+  selectionSummary: {
+    backgroundColor: '#ECFDF5',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#34C759',
+  },
+  selectionText: {
+    color: '#166534',
+    fontSize: 14,
     fontWeight: '600',
   },
 });

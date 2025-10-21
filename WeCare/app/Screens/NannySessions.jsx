@@ -5,9 +5,12 @@ import { useRouter } from 'expo-router';
 
 export default function NannySessions() {
   const router = useRouter();
-  const [sessions, setSessions] = useState([]);
+  const [upcomingSessions, setUpcomingSessions] = useState([]);
+  const [activeSessions, setActiveSessions] = useState([]);
+  const [completedSessions, setCompletedSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [nannyId, setNannyId] = useState(null);
+  const [activeTab, setActiveTab] = useState('upcoming');
 
   useEffect(() => {
     getNannyIdAndFetchSessions();
@@ -19,7 +22,7 @@ export default function NannySessions() {
       const storedNannyId = await AsyncStorage.getItem('userId');
       if (storedNannyId) {
         setNannyId(storedNannyId);
-        await fetchNannySessions(storedNannyId);
+        await fetchAllNannySessions(storedNannyId);
       } else {
         Alert.alert('Error', 'No nanny session found. Please login again.');
         setLoading(false);
@@ -31,23 +34,87 @@ export default function NannySessions() {
     }
   };
 
-  const fetchNannySessions = async (id) => {
+  const fetchAllNannySessions = async (id) => {
     try {
-      // Use correct URL based on platform
       const baseUrl = Platform.OS === 'web' ? 'http://localhost:8080' : 'http://10.0.2.2:8080';
-      const response = await fetch(`${baseUrl}/api/nanny/sessions/${id}`);
-      const result = await response.json();
       
-      if (response.ok) {
-        setSessions(result);
-      } else {
-        Alert.alert('Error', 'Failed to load sessions');
+      // Fetch sessions by status
+      const [upcomingResponse, activeResponse, completedResponse] = await Promise.all([
+        fetch(`${baseUrl}/api/nanny/sessions/${id}/status/UPCOMING`),
+        fetch(`${baseUrl}/api/nanny/sessions/${id}/status/ACTIVE`),
+        fetch(`${baseUrl}/api/nanny/sessions/${id}/status/COMPLETED`)
+      ]);
+      
+      if (upcomingResponse.ok) {
+        const upcoming = await upcomingResponse.json();
+        setUpcomingSessions(upcoming);
       }
+      
+      if (activeResponse.ok) {
+        const active = await activeResponse.json();
+        setActiveSessions(active);
+      }
+      
+      if (completedResponse.ok) {
+        const completed = await completedResponse.json();
+        setCompletedSessions(completed);
+      }
+      
     } catch (error) {
       console.error('Error fetching sessions:', error);
       Alert.alert('Error', 'Could not connect to server');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const activateSession = async (sessionId) => {
+    try {
+      const baseUrl = Platform.OS === 'web' ? 'http://localhost:8080' : 'http://10.0.2.2:8080';
+      const response = await fetch(`${baseUrl}/api/child-sitting-session/activate/${sessionId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        Alert.alert('Success', 'Session activated successfully!');
+        // Refresh sessions
+        await fetchAllNannySessions(nannyId);
+      } else {
+        Alert.alert('Error', result.message || 'Failed to activate session');
+      }
+    } catch (error) {
+      console.error('Error activating session:', error);
+      Alert.alert('Error', 'Could not connect to server');
+    }
+  };
+
+  const completeSession = async (sessionId) => {
+    try {
+      const baseUrl = Platform.OS === 'web' ? 'http://localhost:8080' : 'http://10.0.2.2:8080';
+      const response = await fetch(`${baseUrl}/api/child-sitting-session/complete/${sessionId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        Alert.alert('Success', 'Session completed successfully!');
+        // Refresh sessions
+        await fetchAllNannySessions(nannyId);
+      } else {
+        Alert.alert('Error', result.message || 'Failed to complete session');
+      }
+    } catch (error) {
+      console.error('Error completing session:', error);
+      Alert.alert('Error', 'Could not connect to server');
     }
   };
 
@@ -66,62 +133,133 @@ export default function NannySessions() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Assigned Sessions</Text>
+        <Text style={styles.headerTitle}>My Sessions</Text>
+      </View>
+      
+      {/* Tab Navigation */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'upcoming' && styles.activeTab]}
+          onPress={() => setActiveTab('upcoming')}
+        >
+          <Text style={[styles.tabText, activeTab === 'upcoming' && styles.activeTabText]}>
+            Upcoming ({upcomingSessions.length})
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'active' && styles.activeTab]}
+          onPress={() => setActiveTab('active')}
+        >
+          <Text style={[styles.tabText, activeTab === 'active' && styles.activeTabText]}>
+            Active ({activeSessions.length})
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'completed' && styles.activeTab]}
+          onPress={() => setActiveTab('completed')}
+        >
+          <Text style={[styles.tabText, activeTab === 'completed' && styles.activeTabText]}>
+            Completed ({completedSessions.length})
+          </Text>
+        </TouchableOpacity>
       </View>
       
       <ScrollView style={styles.scrollView}>
-        {sessions.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No sessions assigned yet</Text>
-            <Text style={styles.emptySubtext}>Check back later for new assignments</Text>
-          </View>
-        ) : (
-          sessions.map((session, index) => (
-            <View key={session.id || index} style={styles.sessionCard}>
-              <View style={styles.sessionHeader}>
-                <Text style={styles.sessionTitle}>Session #{session.id}</Text>
-                <Text style={[styles.sessionStatus, { color: getStatusColor(session.status) }]}>
-                  {session.status}
-                </Text>
-              </View>
-              
-              <View style={styles.divider} />
-              
-              <Text style={styles.sessionDetail}>📅 Date: {session.sessionDate}</Text>
-              <Text style={styles.sessionDetail}>🕐 Start: {session.startTime}</Text>
-              <Text style={styles.sessionDetail}>🕐 End: {session.endTime}</Text>
-              
-              {session.driverName && (
-                <Text style={styles.sessionDetail}>🚗 Driver: {session.driverName}</Text>
-              )}
-              
-              {session.children && session.children.length > 0 && (
-                <View style={styles.childrenSection}>
-                  <Text style={styles.childrenLabel}>👶 Children:</Text>
-                  {session.children.map((childName, idx) => (
-                    <Text key={idx} style={styles.childName}>• {childName}</Text>
-                  ))}
-                </View>
-              )}
-            </View>
-          ))
-        )}
+        {renderSessionList()}
       </ScrollView>
     </View>
   );
+
+  function renderSessionList() {
+    let currentSessions = [];
+    let emptyMessage = '';
+    
+    switch (activeTab) {
+      case 'upcoming':
+        currentSessions = upcomingSessions;
+        emptyMessage = 'No upcoming sessions';
+        break;
+      case 'active':
+        currentSessions = activeSessions;
+        emptyMessage = 'No active sessions';
+        break;
+      case 'completed':
+        currentSessions = completedSessions;
+        emptyMessage = 'No completed sessions';
+        break;
+    }
+
+    if (currentSessions.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>{emptyMessage}</Text>
+          <Text style={styles.emptySubtext}>Check back later for new assignments</Text>
+        </View>
+      );
+    }
+
+    return currentSessions.map((session, index) => (
+      <View key={session.id || index} style={styles.sessionCard}>
+        <View style={styles.sessionHeader}>
+          <Text style={styles.sessionTitle}>Session #{session.id}</Text>
+          <Text style={[styles.sessionStatus, { color: getStatusColor(session.status) }]}>
+            {session.status}
+          </Text>
+        </View>
+        
+        <View style={styles.divider} />
+        
+        <Text style={styles.sessionDetail}>📅 Date: {session.sessionDate}</Text>
+        <Text style={styles.sessionDetail}>🕐 Start: {session.startTime}</Text>
+        <Text style={styles.sessionDetail}>🕐 End: {session.endTime}</Text>
+        
+        {session.driverName && (
+          <Text style={styles.sessionDetail}>🚗 Driver: {session.driverName}</Text>
+        )}
+        
+        {session.children && session.children.length > 0 && (
+          <View style={styles.childrenSection}>
+            <Text style={styles.childrenLabel}>👶 Children:</Text>
+            {session.children.map((childName, idx) => (
+              <Text key={idx} style={styles.childName}>• {childName}</Text>
+            ))}
+          </View>
+        )}
+        
+        {/* Action Buttons */}
+        <View style={styles.actionButtons}>
+          {activeTab === 'upcoming' && (
+            <TouchableOpacity 
+              style={styles.activateButton}
+              onPress={() => activateSession(session.id)}
+            >
+              <Text style={styles.buttonText}>Start Session</Text>
+            </TouchableOpacity>
+          )}
+          
+          {activeTab === 'active' && (
+            <TouchableOpacity 
+              style={styles.completeButton}
+              onPress={() => completeSession(session.id)}
+            >
+              <Text style={styles.buttonText}>Complete Session</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    ));
+  }
 }
 
 const getStatusColor = (status) => {
-  switch (status?.toLowerCase()) {
-    case 'pending':
+  switch (status?.toUpperCase()) {
+    case 'UPCOMING':
       return '#FF9500';
-    case 'confirmed':
-      return '#34C759';
-    case 'in-progress':
+    case 'ACTIVE':
       return '#007AFF';
-    case 'completed':
+    case 'COMPLETED':
       return '#34C759';
-    case 'cancelled':
+    case 'CANCELLED':
       return '#FF3B30';
     default:
       return '#8E8E93';
@@ -252,5 +390,59 @@ const styles = StyleSheet.create({
   emptySubtext: {
     fontSize: 16,
     color: '#9CA3AF',
+  },
+  // Tab styles
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 16,
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+  },
+  activeTab: {
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 3,
+    borderBottomColor: '#D81B60',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6B7280',
+  },
+  activeTabText: {
+    color: '#D81B60',
+    fontWeight: 'bold',
+  },
+  // Action button styles
+  actionButtons: {
+    flexDirection: 'row',
+    marginTop: 16,
+    gap: 12,
+  },
+  activateButton: {
+    flex: 1,
+    backgroundColor: '#007AFF',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  completeButton: {
+    flex: 1,
+    backgroundColor: '#34C759',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });
