@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system";
 import {
   StyleSheet,
   SafeAreaView,
@@ -10,11 +11,21 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+// Backend API URL - Update this to your backend URL
+const API_BASE_URL = "http://localhost:8080/api"; // Change this to your actual backend URL
+const IS_WEB = Platform.OS === "web";
+
 export default function BackgroundCheck() {
   const router = useRouter();
+  
+  // This should be passed from the previous screen or retrieved from AsyncStorage
+  const [backgroundCheckId, setBackgroundCheckId] = useState(null); // Will be fetched or created
+  const [userId, setUserId] = useState("user123"); // Replace with actual user ID
+  const [isLoadingBackgroundCheck, setIsLoadingBackgroundCheck] = useState(false);
 
   const [checkItems, setCheckItems] = useState([
     {
@@ -23,6 +34,8 @@ export default function BackgroundCheck() {
       status: "-- Upload --",
       uploaded: false,
       fileName: null,
+      fileUri: null,
+      documentType: "Reference",
     },
     {
       id: 2,
@@ -30,6 +43,8 @@ export default function BackgroundCheck() {
       status: "-- Upload --",
       uploaded: false,
       fileName: null,
+      fileUri: null,
+      documentType: "Police Clearance",
     },
     {
       id: 3,
@@ -37,6 +52,8 @@ export default function BackgroundCheck() {
       status: "-- Upload --",
       uploaded: false,
       fileName: null,
+      fileUri: null,
+      documentType: "Driver Test",
     },
     {
       id: 4,
@@ -44,6 +61,8 @@ export default function BackgroundCheck() {
       status: "-- Upload --",
       uploaded: false,
       fileName: null,
+      fileUri: null,
+      documentType: "Drivers License",
     },
     {
       id: 5,
@@ -51,9 +70,52 @@ export default function BackgroundCheck() {
       status: "-- Pending --",
       uploaded: false,
       fileName: null,
+      fileUri: null,
       disabled: true, // This item is not uploadable
     },
   ]);
+
+  // Get or create background check on component mount
+  React.useEffect(() => {
+    const getOrCreateBackgroundCheck = async () => {
+      if (backgroundCheckId) return; // Already have one
+      
+      setIsLoadingBackgroundCheck(true);
+      try {
+        // Add timeout to fetch request
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+        
+        const response = await fetch(
+          `${API_BASE_URL}/documents/get-or-create-background-check?userId=${userId}`,
+          {
+            method: "POST",
+            signal: controller.signal,
+          }
+        );
+        
+        clearTimeout(timeoutId);
+        
+        const result = await response.json();
+        
+        if (result.success && result.backgroundCheckId) {
+          setBackgroundCheckId(result.backgroundCheckId);
+          console.log("Background check created with ID:", result.backgroundCheckId);
+        } else {
+          console.error("Failed to create background check:", result.message);
+          // Don't show alert, just log it - user can still proceed
+        }
+      } catch (error) {
+        console.error("Error creating background check:", error);
+        // Don't show alert on component load, just log it
+        // User will get error when trying to upload if backend is down
+      } finally {
+        setIsLoadingBackgroundCheck(false);
+      }
+    };
+    
+    getOrCreateBackgroundCheck();
+  }, []);
 
   const handleFileUpload = async (itemId) => {
     try {
@@ -78,6 +140,9 @@ export default function BackgroundCheck() {
                   status: "Uploaded ✓",
                   uploaded: true,
                   fileName: file.name,
+                  fileUri: file.uri,
+                  mimeType: file.mimeType,
+                  fileSize: file.size,
                 }
               : item
           )
@@ -85,7 +150,7 @@ export default function BackgroundCheck() {
 
         Alert.alert(
           "File Selected",
-          `${file.name} has been selected for upload.`,
+          `${file.name} has been selected. Click Submit to upload all documents.`,
           [{ text: "OK" }]
         );
       }
@@ -108,9 +173,133 @@ export default function BackgroundCheck() {
           status: "Uploaded ✓",
           uploaded: true,
           fileName: `${item.label.replace(/\s+/g, '_')}.pdf`,
+          fileUri: null, // Simulated upload
         }
       )
     );
+  };
+
+  // Upload documents to backend
+  const uploadDocumentsToBackend = async () => {
+    try {
+      // Check if backgroundCheckId is available, if not try to create one
+      let currentBackgroundCheckId = backgroundCheckId;
+      
+      if (!currentBackgroundCheckId) {
+        console.log("No background check ID found, attempting to create one...");
+        try {
+          const response = await fetch(
+            `${API_BASE_URL}/documents/get-or-create-background-check?userId=${userId}`,
+            {
+              method: "POST",
+            }
+          );
+          
+          const result = await response.json();
+          
+          if (result.success && result.backgroundCheckId) {
+            currentBackgroundCheckId = result.backgroundCheckId;
+            setBackgroundCheckId(currentBackgroundCheckId);
+            console.log("Created background check with ID:", currentBackgroundCheckId);
+          } else {
+            Alert.alert("Error", "Could not create background check. Please try again.");
+            return false;
+          }
+        } catch (error) {
+          console.error("Error creating background check:", error);
+          Alert.alert("Error", "Could not connect to server. Please ensure backend is running.");
+          return false;
+        }
+      }
+
+      const uploadableItems = checkItems.filter(
+        (item) => !item.disabled && item.uploaded && item.fileUri
+      );
+
+      if (uploadableItems.length === 0) {
+        Alert.alert("No Documents", "No documents to upload.");
+        return false;
+      }
+
+      // Upload each document
+      for (const item of uploadableItems) {
+        try {
+          console.log(`Preparing to upload: ${item.fileName}`);
+          console.log(`Document type: ${item.documentType}`);
+          console.log(`File URI: ${item.fileUri}`);
+          console.log(`Background Check ID: ${currentBackgroundCheckId}`);
+          
+          const formData = new FormData();
+          
+          // Platform-specific file handling
+          if (IS_WEB) {
+            console.log("Using WEB upload method");
+            // For web, directly use the file from the URI
+            const response = await fetch(item.fileUri);
+            const blob = await response.blob();
+            
+            console.log(`Blob size: ${blob.size} bytes, type: ${blob.type}`);
+            
+            formData.append("file", blob, item.fileName);
+            formData.append("documentType", item.documentType);
+            formData.append("backgroundCheckId", currentBackgroundCheckId.toString());
+            formData.append("uploadedBy", userId);
+          } else {
+            console.log("Using NATIVE upload method");
+            // For native mobile (Android/iOS)
+            const fileInfo = await FileSystem.getInfoAsync(item.fileUri);
+            
+            console.log(`File info:`, fileInfo);
+            
+            if (!fileInfo.exists) {
+              throw new Error(`File not found: ${item.fileName}`);
+            }
+
+            // Create file object for upload
+            const file = {
+              uri: item.fileUri,
+              type: item.mimeType || "application/pdf",
+              name: item.fileName,
+            };
+
+            formData.append("file", file);
+            formData.append("documentType", item.documentType);
+            formData.append("backgroundCheckId", currentBackgroundCheckId.toString());
+            formData.append("uploadedBy", userId);
+          }
+
+          // Upload to backend
+          console.log(`Sending upload request to: ${API_BASE_URL}/documents/upload`);
+          const response = await fetch(`${API_BASE_URL}/documents/upload`, {
+            method: "POST",
+            body: formData,
+          });
+
+          console.log(`Upload response status: ${response.status}`);
+          const result = await response.json();
+          console.log(`Upload result:`, result);
+
+          if (!result.success) {
+            throw new Error(result.message || "Upload failed");
+          }
+
+          console.log(`Uploaded ${item.fileName}:`, result);
+        } catch (error) {
+          console.error(`Error uploading ${item.fileName}:`, error);
+          Alert.alert(
+            "Upload Error",
+            `Failed to upload ${item.fileName}: ${error.message}`
+          );
+          return false;
+        }
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Upload error:", error);
+      Alert.alert("Upload Error", `Error uploading documents: ${error.message}`);
+      return false;
+    }
   };
 
   const canSubmit = () => {
@@ -120,43 +309,45 @@ export default function BackgroundCheck() {
     return allUploaded;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     console.log("Submit button pressed");
     console.log("Can submit:", canSubmit());
     
     if (canSubmit()) {
-      console.log("Navigating to DocumentsSubmitted");
+      console.log("Uploading documents to backend...");
       
-      // Update the background check status
-      setCheckItems((prevItems) =>
-        prevItems.map((item) =>
-          item.id === 5 ? { ...item, status: "Submitted ✓" } : item
-        )
-      );
+      // Show loading alert
+      Alert.alert("Uploading", "Please wait while we upload your documents...");
+      
+      // Upload documents to backend
+      const uploadSuccess = await uploadDocumentsToBackend();
+      
+      if (uploadSuccess) {
+        // Update the background check status
+        setCheckItems((prevItems) =>
+          prevItems.map((item) =>
+            item.id === 5 ? { ...item, status: "Submitted ✓" } : item
+          )
+        );
 
-      // Try multiple navigation approaches
-      try {
-        // First try the Screens path
-        router.push("/Screens/DocumentsSubmitted");
-      } catch (error) {
-        console.log("Navigation error with /Screens/DocumentsSubmitted:", error);
-        try {
-          // Fallback to root level
-          router.push("/DocumentsSubmitted");
-        } catch (error2) {
-          console.log("Navigation error with /DocumentsSubmitted:", error2);
-          // Final fallback - just show an alert
-          Alert.alert(
-            "Success!",
-            "Documents submitted successfully! Background check is now under review.",
-            [
-              {
-                text: "OK",
-                onPress: () => router.push("/Screens/Sessions")
+        // Show success message
+        Alert.alert(
+          "Success!",
+          "All documents have been uploaded successfully! Background check is now under review.",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                try {
+                  router.push("/Screens/DocumentsSubmitted");
+                } catch (error) {
+                  console.log("Navigation error:", error);
+                  router.push("/Screens/Sessions");
+                }
               }
-            ]
-          );
-        }
+            }
+          ]
+        );
       }
     } else {
       const uploadableItems = checkItems.filter((item) => !item.disabled);

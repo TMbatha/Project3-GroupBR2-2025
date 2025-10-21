@@ -113,7 +113,7 @@ export default function App() {
 
         <TouchableOpacity
           onPress={() => {
-            // TODO: Add sign-up navigation
+            router.push("/Screens/Registration");
           }}
         >
           <Text style={styles.formFooter}>
