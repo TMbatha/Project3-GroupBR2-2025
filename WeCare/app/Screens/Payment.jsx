@@ -8,7 +8,7 @@ export default function Payment() {
 
   return (
     <LinearGradient
-      colors={["#E3DFDD", "#C0B8B6"]}
+      colors={["#E3DFDD"]}
       style={{ flex: 1 }}
     >
       <SafeAreaView style={{ flex: 1 }}>
@@ -67,7 +67,7 @@ export default function Payment() {
             style={{ marginTop: 20 }}
           >
             <LinearGradient
-              colors={["#FFB6E9", "#F18ECF"]}
+              colors={["#D81B60"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.button}
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     marginBottom: 16,
-    color: "#FF4DA6",
+    color: "#D81B60",
   },
   row: {
     flexDirection: "row",
