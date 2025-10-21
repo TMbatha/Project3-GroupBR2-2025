@@ -10,7 +10,10 @@ import {
   Text,
   TouchableOpacity,
   TextInput,
+  Alert,
 } from "react-native";
+
+const API_BASE_URL = "http://localhost:8080/api";
 
 export default function App() {
   const router = useRouter(); // ✅ Router instance for navigation
@@ -19,6 +22,60 @@ export default function App() {
     email: "",
     password: "",
   });
+
+  const handleLogin = async () => {
+    try {
+      if (!form.email || !form.password) {
+        Alert.alert("Validation", "Please enter email and password");
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+
+      const result = await response.json();
+      console.log("Login result:", result);
+
+      if (response.ok && result.success) {
+        // Store user info if needed (you can use AsyncStorage later)
+        console.log("User logged in:", result.role, result.firstName);
+        
+        // Role-based navigation
+        let navigationPath = "/Screens/Sessions"; // Default for parent
+        let welcomeMessage = `Welcome back, ${result.firstName}!`;
+        
+        switch (result.role) {
+          case "driver":
+            navigationPath = "/Screens/DriverTrips"; // Driver sees assigned trips
+            welcomeMessage = `Welcome back, ${result.firstName}! View your assigned trips.`;
+            break;
+          case "nanny":
+            navigationPath = "/Screens/NannySessions"; // Nanny sees assigned sessions
+            welcomeMessage = `Welcome back, ${result.firstName}! View your assigned sessions.`;
+            break;
+          case "parent":
+          default:
+            navigationPath = "/Screens/Sessions"; // Parent books sessions
+            welcomeMessage = `Welcome back, ${result.firstName}! Book a session for your child.`;
+            break;
+        }
+        
+        // Show success message and navigate
+        Alert.alert("Success", welcomeMessage);
+        setTimeout(() => {
+          router.push(navigationPath);
+        }, 500);
+      } else {
+        Alert.alert("Error", result.message || "Login failed");
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      Alert.alert("Error", "Could not connect to server. Please try again.");
+    }
+  };
 
   return (
     <LinearGradient
@@ -86,15 +143,7 @@ export default function App() {
             </View>
 
             <View style={styles.formAction}>
-              <TouchableOpacity
-                onPress={() => {
-                  if (form.email && form.password) {
-                    router.push("/Screens/Sessions"); // ✅ Navigation fixed
-                  } else {
-                    console.log("Please enter email and password");
-                  }
-                }}
-              >
+              <TouchableOpacity onPress={handleLogin}>
                 <View style={styles.btn}>
                   <Text style={styles.btnText}>Sign in</Text>
                 </View>

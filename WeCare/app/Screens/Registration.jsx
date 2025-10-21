@@ -19,6 +19,8 @@ export default function Registration() {
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
+    email: "",
+    password: "",
     phone1: "",
     phone2: "",
     houseNumber: "",
@@ -47,9 +49,34 @@ export default function Registration() {
       console.log("Registration result:", result);
 
       if (response.ok && result.success) {
-        Alert.alert("Success", "Registration complete.", [
-          { text: "OK", onPress: () => router.push("/Screens/Sessions") },
-        ]);
+        console.log("Registration successful, preparing to redirect...");
+        
+        // Clear form
+        setForm({
+          firstName: "",
+          lastName: "",
+          email: "",
+          password: "",
+          phone1: "",
+          phone2: "",
+          houseNumber: "",
+          streetName: "",
+          postalCode: "",
+          role: "parent",
+        });
+        
+        // Show success message and navigate
+        Alert.alert(
+          "Success", 
+          "Registration complete! Please login with your credentials."
+        );
+        
+        // Navigate after showing alert (give a small delay for alert to show)
+        setTimeout(() => {
+          console.log("Navigating to login page...");
+          router.push("/");
+        }, 500);
+        
       } else {
         Alert.alert("Error", result.message || "Registration failed.");
       }
@@ -63,6 +90,8 @@ export default function Registration() {
     setForm({
       firstName: "",
       lastName: "",
+      email: "",
+      password: "",
       phone1: "",
       phone2: "",
       houseNumber: "",
@@ -90,6 +119,24 @@ export default function Registration() {
           placeholderTextColor="#a97f9c"
           value={form.lastName}
           onChangeText={(text) => setForm({ ...form, lastName: text })}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Email"
+          placeholderTextColor="#a97f9c"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          value={form.email}
+          onChangeText={(text) => setForm({ ...form, email: text })}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Password"
+          placeholderTextColor="#a97f9c"
+          secureTextEntry
+          autoCapitalize="none"
+          value={form.password}
+          onChangeText={(text) => setForm({ ...form, password: text })}
         />
 
         <TextInput
