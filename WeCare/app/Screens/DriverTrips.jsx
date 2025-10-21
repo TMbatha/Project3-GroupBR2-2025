@@ -1,20 +1,39 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert, Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function DriverTrips() {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [driverId, setDriverId] = useState(null);
 
   useEffect(() => {
-    fetchDriverTrips();
+    getDriverIdAndFetchTrips();
   }, []);
 
-  const fetchDriverTrips = async () => {
+  const getDriverIdAndFetchTrips = async () => {
     try {
-      // TODO: Replace with actual driver ID from login session
-      const driverId = 1; // You'll need to store this from login
-      
-      const response = await fetch(`http://10.0.2.2:8080/api/driver/trips/${driverId}`);
+      // Get driver ID from AsyncStorage
+      const storedDriverId = await AsyncStorage.getItem('userId');
+      if (storedDriverId) {
+        setDriverId(storedDriverId);
+        await fetchDriverTrips(storedDriverId);
+      } else {
+        Alert.alert('Error', 'No driver session found. Please login again.');
+        setLoading(false);
+      }
+    } catch (error) {
+      console.error('Error getting driver ID:', error);
+      Alert.alert('Error', 'Could not retrieve driver information');
+      setLoading(false);
+    }
+  };
+
+  const fetchDriverTrips = async (id) => {
+    try {
+      // Use correct URL based on platform
+      const baseUrl = Platform.OS === 'web' ? 'http://localhost:8080' : 'http://10.0.2.2:8080';
+      const response = await fetch(`${baseUrl}/api/driver/trips/${id}`);
       const result = await response.json();
       
       if (response.ok) {
@@ -52,13 +71,31 @@ export default function DriverTrips() {
         ) : (
           trips.map((trip, index) => (
             <View key={index} style={styles.tripCard}>
-              <Text style={styles.tripTitle}>Trip #{trip.id}</Text>
-              <Text style={styles.tripDetail}>Pickup: {trip.pickupLocation}</Text>
-              <Text style={styles.tripDetail}>Dropoff: {trip.dropoffLocation}</Text>
-              <Text style={styles.tripDetail}>Time: {trip.scheduledTime}</Text>
-              <Text style={[styles.tripStatus, { color: getStatusColor(trip.status) }]}>
-                Status: {trip.status}
-              </Text>
+              <View style={styles.tripHeader}>
+                <Text style={styles.tripTitle}>Session #{trip.id}</Text>
+                <Text style={[styles.tripStatus, { color: getStatusColor(trip.status) }]}>
+                  {trip.status}
+                </Text>
+              </View>
+              
+              <View style={styles.divider} />
+              
+              <Text style={styles.tripDetail}>📅 Date: {trip.sessionDate}</Text>
+              <Text style={styles.tripDetail}>🕐 Start Time: {trip.startTime}</Text>
+              <Text style={styles.tripDetail}>🕐 End Time: {trip.endTime}</Text>
+              
+              {trip.nannyName && (
+                <Text style={styles.tripDetail}>👤 Nanny: {trip.nannyName}</Text>
+              )}
+              
+              {trip.children && trip.children.length > 0 && (
+                <View style={styles.childrenSection}>
+                  <Text style={styles.childrenLabel}>👶 Children:</Text>
+                  {trip.children.map((childName, idx) => (
+                    <Text key={idx} style={styles.childName}>• {childName}</Text>
+                  ))}
+                </View>
+              )}
             </View>
           ))
         )}
@@ -71,6 +108,8 @@ const getStatusColor = (status) => {
   switch (status?.toLowerCase()) {
     case 'pending':
       return '#FF9500';
+    case 'confirmed':
+      return '#34C759';
     case 'in-progress':
       return '#007AFF';
     case 'completed':
@@ -102,28 +141,60 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 12,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
+  tripHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
   tripTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#000',
-    marginBottom: 8,
   },
   tripDetail: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
+    fontSize: 15,
+    color: '#333',
+    marginBottom: 8,
+    lineHeight: 22,
   },
   tripStatus: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: 'bold',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E5E5E5',
+    marginBottom: 12,
+  },
+  childrenSection: {
     marginTop: 8,
+    padding: 12,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+  },
+  childrenLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 6,
+  },
+  childName: {
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 8,
+    marginBottom: 4,
   },
   loadingContainer: {
     flex: 1,

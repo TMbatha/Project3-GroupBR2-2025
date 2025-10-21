@@ -1,6 +1,7 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router"; // Add this import
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View,
   Text,
@@ -106,8 +107,22 @@ export default function Sessions({ navigation }) {
   const router = useRouter(); // Add router hook
   const [selectedTab, setSelectedTab] = useState("Active");
   const [sidebarVisible, setSidebarVisible] = useState(false);
+  const [userRole, setUserRole] = useState(null); // Store user role
   const slideAnim = useRef(new Animated.Value(-sidebarWidth)).current;
   const insets = useSafeAreaInsets();
+
+  // Fetch user role from AsyncStorage
+  useEffect(() => {
+    const getUserRole = async () => {
+      try {
+        const role = await AsyncStorage.getItem('userRole');
+        setUserRole(role);
+      } catch (error) {
+        console.error('Error fetching user role:', error);
+      }
+    };
+    getUserRole();
+  }, []);
 
   const openSidebar = () => {
     setSidebarVisible(true);
@@ -180,15 +195,19 @@ export default function Sessions({ navigation }) {
     </View>
   );
 
-  const topSidebarItems = [
+  // Conditionally build menu items based on user role
+  const baseMenuItems = [
     "Account",
     "My Kids",
     "Sessions",
     "Book A Session",
     "Notifications",
-    "Background Check", // Added Background Check here
-    "Children Information", // Added Children Information here
   ];
+
+  // Add Background Check only for drivers
+  const topSidebarItems = userRole === 'driver' 
+    ? [...baseMenuItems, "Background Check", "Children Information"]
+    : [...baseMenuItems, "Children Information"];
 
   const bottomSidebarItems = ["Report", "Sign Out"];
 
@@ -241,7 +260,10 @@ export default function Sessions({ navigation }) {
       />
 
       {/* Floating Book Button */}
-      <TouchableOpacity style={styles.floatingBookButton}>
+      <TouchableOpacity 
+        style={styles.floatingBookButton}
+        onPress={() => router.push("/Screens/BookSession")}
+      >
         <Text style={styles.bookText}>+ BOOK</Text>
       </TouchableOpacity>
 
@@ -337,9 +359,10 @@ const styles = StyleSheet.create({
   },
 
   headerText: {
-    fontSize: 25,
-    fontWeight: "bold",
-    color: "#D81B60",
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#D81B60',
+    letterSpacing: 0.5,
   },
 
   tabBar: {
@@ -351,10 +374,10 @@ const styles = StyleSheet.create({
 
   tabButton: { padding: 10 },
   tabButtonSelected: {
-    borderBottomWidth: 2,
+    borderBottomWidth: 3,
     borderBottomColor: "#D81B60",
   },
-  tabText: { fontSize: 16, color: "#666" },
+  tabText: { fontSize: 16, color: "#666", fontWeight: "600" },
   tabTextSelected: {
     color: "#D81B60",
     fontWeight: "bold",
@@ -370,7 +393,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#e0e0e0", // light border for definition
+    borderColor: "#e0e0e0",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -399,11 +422,11 @@ const styles = StyleSheet.create({
   },
 
   statusIndicator: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: "#4CAF50",
-    marginLeft: 10,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#4CAF50',
+    marginLeft: 12,
   },
 
   floatingBookButton: {
@@ -416,7 +439,7 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     elevation: 5,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     alignItems: "center",
@@ -426,7 +449,7 @@ const styles = StyleSheet.create({
   },
 
   bookText: {
-    color: "#fff",
+    color: "#FFFFFF",
     fontWeight: "bold",
     fontSize: 16,
   },
@@ -499,7 +522,7 @@ const styles = StyleSheet.create({
   },
 
   sidebarItemText: {
-    color: "#fff",
+    color: "#FFFFFF",
     fontWeight: "200",
     fontSize: 15,
     lineHeight: 18,
