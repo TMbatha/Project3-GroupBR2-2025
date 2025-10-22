@@ -87,18 +87,7 @@ export default function Registration() {
   };
 
   const handleCancel = () => {
-    setForm({
-      firstName: "",
-      lastName: "",
-      email: "",
-      password: "",
-      phone1: "",
-      phone2: "",
-      houseNumber: "",
-      streetName: "",
-      postalCode: "",
-      role: "parent",
-    });
+    router.back();
   };
 
   return (
