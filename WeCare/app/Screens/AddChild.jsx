@@ -13,6 +13,7 @@ export default function AddChild() {
         age: "",
         allergies: "",
         notes: "",
+        photoUrl: "",
     });
 
     const handleChange = (key, value) => {
@@ -37,6 +38,7 @@ export default function AddChild() {
                     { key: "surname", placeholder: "Surname" },
                     { key: "gender", placeholder: "Gender" },
                     { key: "age", placeholder: "Age" },
+                    { key: "photoUrl", placeholder: "Photo URL (optional)" },
                     { key: "allergies", placeholder: "Allergies" },
                     { key: "notes", placeholder: "Additional Notes" },
                 ].map((field, idx) => (

@@ -38,6 +38,8 @@ export default function NannySessions() {
     try {
       const baseUrl = Platform.OS === 'web' ? 'http://localhost:8080' : 'http://10.0.2.2:8080';
       
+      console.log(`📥 Fetching sessions for nanny ${id}...`);
+      
       // Fetch sessions by status
       const [upcomingResponse, activeResponse, completedResponse] = await Promise.all([
         fetch(`${baseUrl}/api/nanny/sessions/${id}/status/UPCOMING`),
@@ -47,16 +49,19 @@ export default function NannySessions() {
       
       if (upcomingResponse.ok) {
         const upcoming = await upcomingResponse.json();
+        console.log(`📋 UPCOMING sessions: ${upcoming.length}`);
         setUpcomingSessions(upcoming);
       }
       
       if (activeResponse.ok) {
         const active = await activeResponse.json();
+        console.log(`🟢 ACTIVE sessions: ${active.length}`);
         setActiveSessions(active);
       }
       
       if (completedResponse.ok) {
         const completed = await completedResponse.json();
+        console.log(`✅ COMPLETED sessions: ${completed.length}`);
         setCompletedSessions(completed);
       }
       
@@ -70,6 +75,7 @@ export default function NannySessions() {
 
   const activateSession = async (sessionId) => {
     try {
+      console.log(`🟢 Activating session ${sessionId}...`);
       const baseUrl = Platform.OS === 'web' ? 'http://localhost:8080' : 'http://10.0.2.2:8080';
       const response = await fetch(`${baseUrl}/api/child-sitting-session/activate/${sessionId}`, {
         method: 'PUT',
@@ -79,9 +85,11 @@ export default function NannySessions() {
       });
       
       const result = await response.json();
+      console.log('Activate response:', result);
       
       if (response.ok && result.success) {
-        Alert.alert('Success', 'Session activated successfully!');
+        console.log(`✅ Session ${sessionId} activated - Status: ${result.status}`);
+        Alert.alert('Success', 'Session started! Session is now active.');
         // Refresh sessions
         await fetchAllNannySessions(nannyId);
       } else {
@@ -95,6 +103,7 @@ export default function NannySessions() {
 
   const completeSession = async (sessionId) => {
     try {
+      console.log(`🔵 Completing session ${sessionId}...`);
       const baseUrl = Platform.OS === 'web' ? 'http://localhost:8080' : 'http://10.0.2.2:8080';
       const response = await fetch(`${baseUrl}/api/child-sitting-session/complete/${sessionId}`, {
         method: 'PUT',
@@ -104,9 +113,11 @@ export default function NannySessions() {
       });
       
       const result = await response.json();
+      console.log('Complete response:', result);
       
       if (response.ok && result.success) {
-        Alert.alert('Success', 'Session completed successfully!');
+        console.log(`✅ Session ${sessionId} completed - Status: ${result.status}`);
+        Alert.alert('Success', 'Session closed! Session is now completed.');
         // Refresh sessions
         await fetchAllNannySessions(nannyId);
       } else {
