@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Alert,
   Platform,
+  Modal,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -33,6 +34,8 @@ export default function BookSession() {
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [confirmationData, setConfirmationData] = useState(null);
   
   // Add Child Form state
   const [showAddChildForm, setShowAddChildForm] = useState(false);
@@ -47,8 +50,12 @@ export default function BookSession() {
   const getParentIdAndFetchData = async () => {
     try {
       const storedParentId = await AsyncStorage.getItem('userId');
+      console.log('Stored parent ID from AsyncStorage:', storedParentId);
+      
       if (storedParentId) {
-        setParentId(parseInt(storedParentId));
+        const parsedId = parseInt(storedParentId);
+        setParentId(parsedId);
+        console.log('Parent ID set to:', parsedId);
         await fetchChildren(storedParentId);
       } else {
         Alert.alert('Error', 'No parent session found. Please login again.');
@@ -85,6 +92,11 @@ export default function BookSession() {
       return;
     }
 
+    if (!parentId) {
+      Alert.alert('Error', 'Parent session not found. Please login again.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -92,12 +104,12 @@ export default function BookSession() {
         childName: newChildName,
         childSurname: newChildSurname,
         childAge: parseInt(newChildAge),
-        parent: {
-          parentId: parentId
-        }
+        parentId: parseInt(parentId) // Send parentId directly
       };
 
-      const response = await fetch('http://localhost:8080/api/child/create', {
+      console.log('Adding child with data:', JSON.stringify(childData));
+
+      const response = await fetch(`http://localhost:8080/api/child/create?parentId=${parseInt(parentId)}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -116,10 +128,12 @@ export default function BookSession() {
         setShowAddChildForm(false);
         
         // Refresh children list
-        await fetchChildren();
+        await fetchChildren(parentId);
         
-        Alert.alert('Success', `${newChild.childName} has been added!`);
+        Alert.alert('Success', `Child added successfully!`);
       } else {
+        const errorData = await response.text();
+        console.error('Error response:', errorData);
         Alert.alert('Error', 'Failed to add child');
       }
     } catch (error) {
@@ -189,37 +203,99 @@ export default function BookSession() {
   };
 
   const handleBookSession = async () => {
+    console.log('=== BOOK SESSION BUTTON CLICKED ===');
+    console.log('Selected Children:', selectedChildren);
+    console.log('Session Date:', sessionDate);
+    console.log('Start Time:', startTime);
+    console.log('End Time:', endTime);
+    console.log('Selected Nanny:', selectedNanny);
+    console.log('Payment Amount:', paymentAmount);
+    
     // Validation
     if (selectedChildren.length === 0) {
+      console.log('❌ Validation failed: No children selected');
       Alert.alert('Error', 'Please select at least one child');
       return;
     }
+    console.log('✓ Children validation passed');
+    
     if (!sessionDate) {
+      console.log('❌ Validation failed: No session date');
       Alert.alert('Error', 'Please select a session date');
       return;
     }
+    console.log('✓ Session date validation passed');
+    
     if (!startTime) {
+      console.log('❌ Validation failed: No start time');
       Alert.alert('Error', 'Please select a start time');
       return;
     }
+    console.log('✓ Start time validation passed');
+    
     if (!endTime) {
+      console.log('❌ Validation failed: No end time');
       Alert.alert('Error', 'Please select an end time');
       return;
     }
+    console.log('✓ End time validation passed');
+    
     if (!selectedNanny) {
+      console.log('❌ Validation failed: No nanny selected');
       Alert.alert('Error', 'Please select a nanny');
       return;
     }
+    console.log('✓ Nanny validation passed');
+    
     if (!paymentAmount || parseFloat(paymentAmount) <= 0) {
+      console.log('❌ Validation failed: Invalid payment amount');
       Alert.alert('Error', 'Please enter a valid payment amount');
       return;
     }
+    console.log('✓ Payment amount validation passed');
+    console.log('✓ All validations passed - preparing confirmation dialog');
 
-    setLoading(true);
+    console.log('✓ Payment amount validation passed');
+    console.log('✓ All validations passed - preparing confirmation dialog');
 
-    try {
-      const bookingData = {
-        parentId: parentId,
+    // Get selected children names
+    const selectedChildrenNames = children
+      .filter(child => selectedChildren.includes(child.childId))
+      .map(child => `${child.childName} ${child.childSurname}`)
+      .join(', ');
+    
+    console.log('Selected children names:', selectedChildrenNames);
+
+    // Get selected nanny name
+    const selectedNannyObj = nannies.find(n => n.nannyId === parseInt(selectedNanny));
+    const nannyName = selectedNannyObj 
+      ? `${selectedNannyObj.nannyName} ${selectedNannyObj.nannySurname}` 
+      : 'Unknown';
+    
+    console.log('Selected nanny name:', nannyName);
+
+    // Get selected driver name (if any)
+    let driverName = 'No driver';
+    if (selectedDriver) {
+      const selectedDriverObj = drivers.find(d => d.driverId === parseInt(selectedDriver));
+      driverName = selectedDriverObj 
+        ? `${selectedDriverObj.driverName} ${selectedDriverObj.driverSurname}` 
+        : 'Unknown';
+    }
+    
+    console.log('Selected driver name:', driverName);
+    console.log('📋 Showing confirmation dialog...');
+
+    // Store confirmation data for modal
+    const confirmData = {
+      date: formatDate(sessionDate),
+      time: `${formatTime(startTime)} - ${formatTime(endTime)}`,
+      children: selectedChildrenNames,
+      nanny: nannyName,
+      driver: driverName,
+      payment: parseFloat(paymentAmount).toFixed(2),
+      bookingData: {
+        parentId: parseInt(parentId),
         childIds: selectedChildren,
         sessionDate: formatDate(sessionDate),
         sessionStartTime: formatTime(startTime),
@@ -227,9 +303,25 @@ export default function BookSession() {
         nannyId: parseInt(selectedNanny),
         driverId: selectedDriver ? parseInt(selectedDriver) : null,
         paymentAmount: parseFloat(paymentAmount),
-      };
+      }
+    };
 
-      console.log('Booking data:', bookingData);
+    setConfirmationData(confirmData);
+    setShowConfirmationModal(true);
+  };
+
+  const proceedWithBooking = async () => {
+    console.log('✅ User clicked Confirm - starting booking process...');
+    setShowConfirmationModal(false);
+    setLoading(true);
+
+    try {
+      const bookingData = confirmationData.bookingData;
+
+      console.log('=== BOOKING SESSION ===');
+      console.log('Booking data:', JSON.stringify(bookingData, null, 2));
+      console.log('API URL:', 'http://localhost:8080/api/child-sitting-session/book');
+      console.log('📡 Sending booking request to backend...');
 
       const response = await fetch('http://localhost:8080/api/child-sitting-session/book', {
         method: 'POST',
@@ -239,12 +331,33 @@ export default function BookSession() {
         body: JSON.stringify(bookingData),
       });
 
+      console.log('📦 Response received from backend:');
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+      console.log('Response headers:', response.headers);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Backend returned error:', errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
       const result = await response.json();
+      console.log('✅ Response result:', JSON.stringify(result, null, 2));
 
       if (response.ok && result.success) {
+        // Clear form
+        setSelectedChildren([]);
+        setSessionDate(null);
+        setStartTime(null);
+        setEndTime(null);
+        setSelectedNanny('');
+        setSelectedDriver('');
+        setPaymentAmount('');
+        
         Alert.alert(
           'Success',
-          `Session booked successfully!\n\nNanny: ${result.nannyName}\n${result.driverName ? `Driver: ${result.driverName}` : ''}`,
+          `Session booked successfully!\n\nSession ID: ${result.sessionId}\nNanny: ${result.nannyName}\n${result.driverName ? `Driver: ${result.driverName}` : ''}`,
           [
             {
               text: 'OK',
@@ -253,11 +366,12 @@ export default function BookSession() {
           ]
         );
       } else {
+        console.error('Booking failed:', result.message);
         Alert.alert('Error', result.message || 'Failed to book session');
       }
     } catch (error) {
       console.error('Error booking session:', error);
-      Alert.alert('Error', 'Could not connect to server');
+      Alert.alert('Error', 'Could not connect to server. Make sure backend is running.');
     } finally {
       setLoading(false);
     }
@@ -276,16 +390,28 @@ export default function BookSession() {
         {/* Select Children */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.label}>Select Child(ren) *</Text>
+            <Text style={[styles.label, selectedChildren.length === 0 && styles.requiredField]}>
+              Select Child(ren) * {selectedChildren.length === 0 && '(Required)'}
+            </Text>
             <TouchableOpacity
-              style={styles.addChildButton}
-              onPress={() => setShowAddChildForm(!showAddChildForm)}
+              style={[styles.addChildButton, !parentId && styles.addChildButtonDisabled]}
+              onPress={() => parentId && setShowAddChildForm(!showAddChildForm)}
+              disabled={!parentId}
             >
               <Text style={styles.addChildButtonText}>
                 {showAddChildForm ? '− Cancel' : '+ Add Child'}
               </Text>
             </TouchableOpacity>
           </View>
+          
+          {/* Selection Summary */}
+          {selectedChildren.length > 0 && (
+            <View style={styles.selectionSummary}>
+              <Text style={styles.selectionText}>
+                ✓ {selectedChildren.length} child{selectedChildren.length > 1 ? 'ren' : ''} selected
+              </Text>
+            </View>
+          )}
 
           {/* Add Child Form */}
           {showAddChildForm && (
@@ -599,6 +725,56 @@ export default function BookSession() {
           </Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Custom Confirmation Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showConfirmationModal}
+        onRequestClose={() => setShowConfirmationModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Confirm Booking</Text>
+            
+            {confirmationData && (
+              <View style={styles.modalContent}>
+                <Text style={styles.modalText}>Please confirm your session booking:</Text>
+                
+                <View style={styles.confirmationDetails}>
+                  <Text style={styles.detailItem}>📅 Date: {confirmationData.date}</Text>
+                  <Text style={styles.detailItem}>🕐 Time: {confirmationData.time}</Text>
+                  <Text style={styles.detailItem}>👶 Children: {confirmationData.children}</Text>
+                  <Text style={styles.detailItem}>👤 Nanny: {confirmationData.nanny}</Text>
+                  <Text style={styles.detailItem}>🚗 Driver: {confirmationData.driver}</Text>
+                  <Text style={styles.detailItem}>💰 Payment: R{confirmationData.payment}</Text>
+                </View>
+                
+                <Text style={styles.modalQuestion}>Do you want to proceed with this booking?</Text>
+              </View>
+            )}
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => {
+                  console.log('❌ Booking cancelled by user');
+                  setShowConfirmationModal(false);
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.confirmButton}
+                onPress={proceedWithBooking}
+              >
+                <Text style={styles.confirmButtonText}>Confirm</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -664,6 +840,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 3,
+  },
+  addChildButtonDisabled: {
+    backgroundColor: '#9CA3AF',
+    shadowOpacity: 0.1,
   },
   addChildButtonText: {
     color: '#FFFFFF',
@@ -828,5 +1008,106 @@ const styles = StyleSheet.create({
     color: '#92400E',
     textAlign: 'center',
     fontWeight: '500',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#D81B60',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  modalContent: {
+    marginBottom: 24,
+  },
+  modalText: {
+    fontSize: 16,
+    color: '#374151',
+    textAlign: 'center',
+    marginBottom: 16,
+    fontWeight: '500',
+  },
+  confirmationDetails: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  detailItem: {
+    fontSize: 14,
+    color: '#1F2937',
+    marginBottom: 8,
+    fontWeight: '500',
+  },
+  modalQuestion: {
+    fontSize: 16,
+    color: '#374151',
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: '#E5E7EB',
+    padding: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: '#6B7280',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  confirmButton: {
+    flex: 1,
+    backgroundColor: '#D81B60',
+    padding: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  confirmButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  requiredField: {
+    color: '#DC2626',
+    fontWeight: '600',
+  },
+  selectionSummary: {
+    backgroundColor: '#ECFDF5',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#34C759',
+  },
+  selectionText: {
+    color: '#166534',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
