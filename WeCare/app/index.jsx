@@ -58,6 +58,14 @@ export default function App() {
         let welcomeMessage = `Welcome back, ${result.firstName}!`;
         
         switch (result.role) {
+          case "admin":
+            navigationPath = "/Screens/AdminDashboard"; // Admin goes to admin dashboard
+            welcomeMessage = `Welcome back, ${result.firstName}! Manage the WeCare system.`;
+            // Store admin-specific data
+            await AsyncStorage.setItem('userType', 'admin');
+            await AsyncStorage.setItem('adminUsername', result.username || '');
+            await AsyncStorage.setItem('adminFullName', result.firstName + ' ' + (result.lastName || ''));
+            break;
           case "driver":
             navigationPath = "/Screens/DriverTrips"; // Driver sees assigned trips
             welcomeMessage = `Welcome back, ${result.firstName}! View your assigned trips.`;
@@ -167,6 +175,13 @@ export default function App() {
             >
               <Text style={styles.formLink}>Forgot password?</Text>
             </TouchableOpacity>
+
+            {/* Admin Login Info */}
+            <View style={styles.adminInfo}>
+              <Text style={styles.adminInfoTitle}>🔐 Admin Access</Text>
+              <Text style={styles.adminInfoText}>Username: admin</Text>
+              <Text style={styles.adminInfoText}>Password: admin123</Text>
+            </View>
           </View>
         </View>
 
@@ -274,5 +289,27 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     fontWeight: "600",
     color: "#fff",
+  },
+  adminInfo: {
+    marginTop: 24,
+    padding: 16,
+    backgroundColor: "rgba(0, 0, 0, 0.05)",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(0, 0, 0, 0.1)",
+  },
+  adminInfoTitle: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#1F2937",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  adminInfoText: {
+    fontSize: 12,
+    color: "#4B5563",
+    textAlign: "center",
+    fontFamily: "monospace",
+    marginBottom: 2,
   },
 });

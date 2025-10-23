@@ -197,6 +197,18 @@ export default function Registration() {
             <Text style={styles.buttonText}>Register</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Admin Login Section */}
+        <View style={styles.adminSection}>
+          <Text style={styles.adminSectionTitle}>System Administration</Text>
+          <TouchableOpacity 
+            style={styles.adminButton} 
+            onPress={() => router.push('/Screens/AdminLogin')}
+          >
+            <Text style={styles.adminButtonText}>🔐 Admin Login</Text>
+          </TouchableOpacity>
+          <Text style={styles.adminNote}>For administrators only</Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -214,4 +226,37 @@ const styles = StyleSheet.create({
   roleButton: { padding: 10, borderRadius: 8, backgroundColor: "#fff" },
   roleSelected: { backgroundColor: "#a97f9c" },
   roleText: { color: "#222", fontWeight: "600" },
+  // Admin section styles
+  adminSection: {
+    marginTop: 30,
+    padding: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 15,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  adminSectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#fff",
+    marginBottom: 12,
+  },
+  adminButton: {
+    backgroundColor: "#1F2937",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 20,
+    marginBottom: 8,
+  },
+  adminButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  adminNote: {
+    fontSize: 12,
+    color: "rgba(255, 255, 255, 0.7)",
+    fontStyle: "italic",
+  },
 });

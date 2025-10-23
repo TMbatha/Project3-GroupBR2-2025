@@ -74,9 +74,11 @@ export default function BookSession() {
       const response = await fetch(`http://localhost:8080/api/child/parent/${id}`);
       const result = await response.json();
       console.log('Children fetched:', result);
-      setChildren(result);
+      // Ensure result is always an array
+      setChildren(Array.isArray(result) ? result : []);
     } catch (error) {
       console.error('Error fetching children:', error);
+      setChildren([]); // Reset to empty array on error
       Alert.alert('Error', 'Could not load children. Make sure backend is running.');
     }
   };
@@ -161,9 +163,11 @@ export default function BookSession() {
       console.log('Nannies fetched:', result);
       console.log('Number of nannies:', result.length);
       
-      setNannies(result);
+      // Ensure result is always an array
+      setNannies(Array.isArray(result) ? result : []);
     } catch (error) {
       console.error('Error fetching nannies:', error);
+      setNannies([]); // Reset to empty array on error
       Alert.alert('Error', `Could not load nannies: ${error.message}. Make sure backend is running.`);
     }
   };
@@ -173,9 +177,11 @@ export default function BookSession() {
       const response = await fetch('http://localhost:8080/api/driver/all');
       const result = await response.json();
       console.log('Drivers fetched:', result);
-      setDrivers(result);
+      // Ensure result is always an array
+      setDrivers(Array.isArray(result) ? result : []);
     } catch (error) {
       console.error('Error fetching drivers:', error);
+      setDrivers([]); // Reset to empty array on error
       Alert.alert('Error', 'Could not load drivers. Make sure backend is running.');
     }
   };
@@ -357,11 +363,15 @@ export default function BookSession() {
         
         Alert.alert(
           'Success',
-          `Session booked successfully!\n\nSession ID: ${result.sessionId}\nNanny: ${result.nannyName}\n${result.driverName ? `Driver: ${result.driverName}` : ''}`,
+          `Session booked successfully!\n\nSession ID: ${result.sessionId}\nNanny: ${result.nannyName}\n${result.driverName ? `Driver: ${result.driverName}` : ''}\n\nYour session has been added to upcoming sessions.`,
           [
             {
-              text: 'OK',
-              onPress: () => router.push('/Screens/Sessions'),
+              text: 'View Sessions',
+              onPress: () => {
+                console.log('Redirecting to Sessions page...');
+                console.log('Session should be visible with status: UPCOMING');
+                router.push('/Screens/Sessions');
+              },
             },
           ]
         );
@@ -453,14 +463,14 @@ export default function BookSession() {
           )}
 
           {/* Children List */}
-          {children.length === 0 ? (
+          {!children || children.length === 0 ? (
             <View style={styles.emptyMessage}>
               <Text style={styles.emptyText}>
                 No children added yet. Click "+ Add Child" above to add a child.
               </Text>
             </View>
           ) : (
-            children.map((child) => (
+            Array.isArray(children) && children.map((child) => (
               <TouchableOpacity
                 key={child.childId}
                 style={[
@@ -663,7 +673,7 @@ export default function BookSession() {
                 style={styles.picker}
               >
                 <Picker.Item label="-- Select a Nanny --" value="" />
-                {nannies.map((nanny) => (
+                {Array.isArray(nannies) && nannies.map((nanny) => (
                   <Picker.Item
                     key={nanny.nannyId}
                     label={`${nanny.nannyName} ${nanny.nannySurname}`}
@@ -690,7 +700,7 @@ export default function BookSession() {
                 style={styles.picker}
               >
                 <Picker.Item label="-- No Driver --" value="" />
-                {drivers.map((driver) => (
+                {Array.isArray(drivers) && drivers.map((driver) => (
                   <Picker.Item
                     key={driver.driverId}
                     label={`${driver.driverName} ${driver.driverSurname}`}

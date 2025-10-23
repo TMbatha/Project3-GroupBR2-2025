@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function AddChild() {
     const router = useRouter();
+    const [loading, setLoading] = useState(false);
     const [form, setForm] = useState({
         name: "",
         surname: "",
@@ -18,6 +20,68 @@ export default function AddChild() {
 
     const handleChange = (key, value) => {
         setForm({ ...form, [key]: value });
+    };
+
+    const handleAddChild = async () => {
+        // Validate required fields
+        if (!form.name || !form.surname || !form.age) {
+            Alert.alert('Error', 'Please fill in the required fields: Name, Surname, and Age');
+            return;
+        }
+
+        const age = parseInt(form.age);
+        if (isNaN(age) || age <= 0 || age > 18) {
+            Alert.alert('Error', 'Please enter a valid age between 1 and 18');
+            return;
+        }
+
+        setLoading(true);
+
+        try {
+            // Get parent ID from AsyncStorage
+            const parentId = await AsyncStorage.getItem('userId');
+            if (!parentId) {
+                Alert.alert('Error', 'No parent session found. Please login again.');
+                return;
+            }
+
+            const childData = {
+                childName: form.name,
+                childSurname: form.surname,
+                childAge: age,
+                parentId: parseInt(parentId)
+            };
+
+            const response = await fetch(`http://localhost:8080/api/child/create?parentId=${parentId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(childData),
+            });
+
+            if (response.ok) {
+                const newChild = await response.json();
+                Alert.alert(
+                    'Success', 
+                    'Child added successfully! You can now book sessions.',
+                    [
+                        {
+                            text: 'Go to Sessions',
+                            onPress: () => router.push('/Screens/Sessions')
+                        }
+                    ]
+                );
+            } else {
+                const errorData = await response.text();
+                Alert.alert('Error', 'Failed to add child. Please try again.');
+            }
+        } catch (error) {
+            console.error('Error adding child:', error);
+            Alert.alert('Error', 'Could not connect to server. Please try again.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -44,15 +108,24 @@ export default function AddChild() {
                 ].map((field, idx) => (
                     <TextInput
                         key={idx}
-                        placeholder={field.placeholder}
+                        placeholder={field.placeholder + (field.key === 'name' || field.key === 'surname' || field.key === 'age' ? ' *' : '')}
                         value={form[field.key]}
                         onChangeText={(text) => handleChange(field.key, text)}
+                        keyboardType={field.key === 'age' ? 'numeric' : 'default'}
                         style={styles.input}
                     />
                 ))}
 
-                <TouchableOpacity style={styles.addButton} onPress={() => alert("Child added!")}>
-                    <Text style={styles.addButtonText}>ADD</Text>
+                <TouchableOpacity 
+                    style={[styles.addButton, loading && styles.disabledButton]} 
+                    onPress={handleAddChild}
+                    disabled={loading}
+                >
+                    {loading ? (
+                        <ActivityIndicator color="#D81B60" />
+                    ) : (
+                        <Text style={styles.addButtonText}>ADD CHILD</Text>
+                    )}
                 </TouchableOpacity>
 
                 <TouchableOpacity style={[styles.addButton, { backgroundColor: "#e0e0e0" }]} onPress={() => router.push("/Screens/MyChildren")}>
@@ -85,6 +158,10 @@ const styles = StyleSheet.create({
         borderRadius: 30,
         paddingVertical: 12,
         alignItems: "center",
+    },
+    disabledButton: {
+        backgroundColor: "#e0e0e0",
+        opacity: 0.6,
     },
     addButtonText: { color: "#D81B60", fontWeight: "bold", fontSize: 16 },
 });
