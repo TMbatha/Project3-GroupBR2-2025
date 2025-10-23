@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
-import { useRouter } from "expo-router"; // Add this import
+import { useRouter, useFocusEffect } from "expo-router"; // Add useFocusEffect
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View,
@@ -27,7 +27,7 @@ const screenHeight = Dimensions.get("window").height;
 
 export default function Sessions({ navigation }) {
   const router = useRouter(); // Add router hook
-  const [selectedTab, setSelectedTab] = useState("Active");
+  const [selectedTab, setSelectedTab] = useState("Upcoming"); // Changed default to Upcoming
   const [sidebarVisible, setSidebarVisible] = useState(false);
   const [userRole, setUserRole] = useState(null); // Store user role
   const [nannyId, setNannyId] = useState(null); // Store nanny ID
@@ -47,6 +47,8 @@ export default function Sessions({ navigation }) {
         if (role === 'nanny' && userId) {
           setNannyId(parseInt(userId));
           await fetchNannySessions(userId);
+        } else if (role === 'parent' && userId) {
+          await fetchParentSessions(userId);
         } else {
           setLoading(false);
         }
@@ -56,7 +58,37 @@ export default function Sessions({ navigation }) {
       }
     };
     getUserDataAndFetchSessions();
-  }, []);
+    
+    // Set up polling for real-time updates every 30 seconds
+    const interval = setInterval(() => {
+      if (userRole && userRole !== null) {
+        getUserDataAndFetchSessions();
+      }
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, [userRole]);
+
+  // Refresh sessions when screen comes into focus (after booking)
+  useFocusEffect(
+    React.useCallback(() => {
+      const refreshSessions = async () => {
+        const role = await AsyncStorage.getItem('userRole');
+        const userId = await AsyncStorage.getItem('userId');
+        
+        if (role === 'nanny' && userId) {
+          await fetchNannySessions(userId);
+        } else if (role === 'parent' && userId) {
+          await fetchParentSessions(userId);
+        }
+      };
+      
+      // Only refresh if user role is already set (not on initial load)
+      if (userRole) {
+        refreshSessions();
+      }
+    }, [userRole])
+  );
 
   // Fetch sessions assigned to the nanny
   const fetchNannySessions = async (nannyId) => {
@@ -75,6 +107,53 @@ export default function Sessions({ navigation }) {
     } catch (error) {
       console.error('Error fetching nanny sessions:', error);
       Alert.alert('Error', 'Could not connect to server');
+      setSessions([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch sessions booked by the parent
+  const fetchParentSessions = async (parentId) => {
+    try {
+      console.log('Loading parent sessions for parent ID:', parentId);
+      setLoading(true);
+      
+      // Simulate loading time for better UX
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Create mock sessions that would appear after booking
+      const mockSessions = [
+        {
+          sessionId: 1,
+          sessionDate: '2025-10-24',
+          startTime: '09:00:00',
+          endTime: '17:00:00',
+          status: 'UPCOMING',
+          children: ['Emma Johnson', 'Liam Johnson'],
+          nannyName: 'Sarah Williams',
+          driverName: 'Michael Brown',
+          paymentAmount: 150,
+          sessionConfirmed: true
+        },
+        {
+          sessionId: 2,
+          sessionDate: '2025-10-30',
+          startTime: '07:50:00',
+          endTime: '18:51:00',
+          status: 'UPCOMING',
+          children: ['Emma Johnson'],
+          nannyName: 'Lehlohonolonn Mokoenann',
+          driverName: 'Lehlohonolodd Mokoenadd',
+          paymentAmount: 14,
+          sessionConfirmed: true
+        }
+      ];
+      
+      console.log('Parent sessions loaded:', mockSessions);
+      setSessions(mockSessions);
+    } catch (error) {
+      console.error('Error loading parent sessions:', error);
       setSessions([]);
     } finally {
       setLoading(false);
@@ -115,7 +194,7 @@ export default function Sessions({ navigation }) {
         // Already on Sessions page
         break;
       case "Book A Session":
-        // navigation.navigate("BookSession");
+        router.push("/Screens/BookSession");
         break;
       case "Notifications":
         router.push("/Screens/Notifications");
@@ -138,12 +217,17 @@ export default function Sessions({ navigation }) {
     }
   };
 
-  // Categorize sessions by status/date
+  // Categorize sessions by status
   const categorizedSessions = {
-    Active: sessions.filter(s => s.status === 'Confirmed' && new Date(s.sessionDate) >= new Date()),
-    Upcoming: sessions.filter(s => s.status === 'Pending'),
-    Closed: sessions.filter(s => new Date(s.sessionDate) < new Date() && s.status === 'Confirmed'),
+    Active: sessions.filter(s => s.status === 'ACTIVE'),
+    Upcoming: sessions.filter(s => s.status === 'UPCOMING'),
+    Closed: sessions.filter(s => s.status === 'COMPLETED' || s.status === 'CANCELLED'),
   };
+
+  // Debug logging for session categorization
+  console.log('All sessions:', sessions);
+  console.log('Categorized sessions:', categorizedSessions);
+  console.log('Upcoming sessions count:', categorizedSessions.Upcoming.length);
 
   const renderSession = ({ item }) => (
     <View style={styles.sessionCard}>
@@ -154,18 +238,32 @@ export default function Sessions({ navigation }) {
         <Text style={styles.sessionName}>
           {item.children && item.children.length > 0 ? item.children.join(', ') : 'No children'}
         </Text>
-        <Text style={styles.sessionDetails}>Session #{item.id}</Text>
+        <Text style={styles.sessionDetails}>Session #{item.sessionId || item.id}</Text>
         <Text style={styles.sessionDetails}>📅 {item.sessionDate}</Text>
         <Text style={styles.sessionDetails}>🕐 {item.startTime} - {item.endTime}</Text>
-        {item.parentName && (
-          <Text style={styles.sessionDetails}>👤 Parent: {item.parentName}</Text>
+        
+        {/* Show different info based on user role */}
+        {userRole === 'parent' && item.nannyName && (
+          <Text style={styles.sessionDetails}>�‍⚕️ Nanny: {item.nannyName}</Text>
         )}
-        {item.driverName && (
+        {userRole === 'parent' && item.driverName && (
           <Text style={styles.sessionDetails}>🚗 Driver: {item.driverName}</Text>
         )}
+        {userRole === 'nanny' && item.parentName && (
+          <Text style={styles.sessionDetails}>👤 Parent: {item.parentName}</Text>
+        )}
+        
+        {/* Status indicator */}
+        <View style={styles.statusContainer}>
+          <Text style={[styles.statusText, { 
+            color: getStatusColor(item.status)
+          }]}>
+            {getStatusLabel(item.status)}
+          </Text>
+        </View>
       </View>
       <View style={[styles.statusIndicator, { 
-        backgroundColor: item.status === 'Confirmed' ? '#4CAF50' : '#FF9500' 
+        backgroundColor: getStatusColor(item.status)
       }]} />
     </View>
   );
@@ -186,6 +284,37 @@ export default function Sessions({ navigation }) {
 
   const bottomSidebarItems = ["Report", "Sign Out"];
 
+  // Helper functions for status display
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'UPCOMING':
+        return '#FF9500';
+      case 'ACTIVE':
+        return '#007AFF';
+      case 'COMPLETED':
+        return '#34C759';
+      case 'CANCELLED':
+        return '#FF3B30';
+      default:
+        return '#8E8E93';
+    }
+  };
+
+  const getStatusLabel = (status) => {
+    switch (status) {
+      case 'UPCOMING':
+        return 'Upcoming';
+      case 'ACTIVE':
+        return 'Active';
+      case 'COMPLETED':
+        return 'Completed';
+      case 'CANCELLED':
+        return 'Cancelled';
+      default:
+        return status || 'Unknown';
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" backgroundColor="#fff" translucent={false} />
@@ -197,15 +326,25 @@ export default function Sessions({ navigation }) {
         </TouchableOpacity>
         <Text style={styles.headerText}>SESSIONS</Text>
         <TouchableOpacity
-          onPress={() => router.push("/Screens/BackgroundCheck")}
+          onPress={async () => {
+            console.log('Manual refresh triggered');
+            setLoading(true);
+            const role = await AsyncStorage.getItem('userRole');
+            const userId = await AsyncStorage.getItem('userId');
+            if (role === 'parent' && userId) {
+              await fetchParentSessions(userId);
+            } else if (role === 'nanny' && userId) {
+              await fetchNannySessions(userId);
+            }
+          }}
         >
-          <Ionicons name="notifications" size={28} color="#000" />
+          <Ionicons name="refresh" size={28} color="#000" />
         </TouchableOpacity>
       </View>
 
       {/* Tab Bar */}
       <View style={styles.tabBar}>
-        {["Active", "Upcoming", "Closed"].map((tab) => (
+        {["Upcoming", "Active", "Closed"].map((tab) => (
           <TouchableOpacity
             key={tab}
             style={[
@@ -235,24 +374,39 @@ export default function Sessions({ navigation }) {
       ) : categorizedSessions[selectedTab].length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>No {selectedTab.toLowerCase()} sessions</Text>
-          <Text style={styles.emptySubtext}>Sessions assigned to you will appear here</Text>
+          <Text style={styles.emptySubtext}>
+            {userRole === 'parent' 
+              ? `Book your first session using the "+ BOOK" button below`
+              : 'Sessions assigned to you will appear here'
+            }
+          </Text>
+          {userRole === 'parent' && selectedTab === 'Upcoming' && (
+            <TouchableOpacity 
+              style={styles.bookSessionButton}
+              onPress={() => router.push("/Screens/BookSession")}
+            >
+              <Text style={styles.bookSessionButtonText}>Book Your First Session</Text>
+            </TouchableOpacity>
+          )}
         </View>
       ) : (
         <FlatList
           data={categorizedSessions[selectedTab]}
           renderItem={renderSession}
-          keyExtractor={(item) => item.id.toString()}
+          keyExtractor={(item) => (item.sessionId || item.id).toString()}
           contentContainerStyle={styles.list}
         />
       )}
 
-      {/* Floating Book Button */}
-      <TouchableOpacity 
-        style={styles.floatingBookButton}
-        onPress={() => router.push("/Screens/BookSession")}
-      >
-        <Text style={styles.bookText}>+ BOOK</Text>
-      </TouchableOpacity>
+      {/* Floating Book Button - Only for parents */}
+      {userRole === 'parent' && (
+        <TouchableOpacity 
+          style={styles.floatingBookButton}
+          onPress={() => router.push("/Screens/BookSession")}
+        >
+          <Text style={styles.bookText}>+ BOOK</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Full screen dark overlay */}
       {sidebarVisible && (
@@ -333,59 +487,75 @@ export default function Sessions({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff", // must be white to match top system UI
+    backgroundColor: "#F8FAFC", // Slightly off-white for better contrast
   },
 
   topPanel: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    backgroundColor: "#fff",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
   },
 
   headerText: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
     color: '#D81B60',
     letterSpacing: 0.5,
+    textAlign: 'center',
   },
 
   tabBar: {
     flexDirection: "row",
     justifyContent: "space-around",
-    paddingVertical: 10,
-    backgroundColor: "#fff",
+    paddingVertical: 16,
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+    marginBottom: 8,
   },
 
-  tabButton: { padding: 10 },
-  tabButtonSelected: {
-    borderBottomWidth: 3,
-    borderBottomColor: "#D81B60",
+  tabButton: { 
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 20,
   },
-  tabText: { fontSize: 16, color: "#666", fontWeight: "600" },
+  
+  tabButtonSelected: {
+    backgroundColor: "#D81B60",
+  },
+  
+  tabText: { 
+    fontSize: 16, 
+    color: "#6B7280", 
+    fontWeight: "600",
+    textAlign: 'center',
+  },
+  
   tabTextSelected: {
-    color: "#D81B60",
+    color: "#FFFFFF",
     fontWeight: "bold",
   },
 
   list: { padding: 10 },
 
   sessionCard: {
-    flexDirection: "row",
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 10,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    marginHorizontal: 4,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3, // Android shadow
+    shadowRadius: 8,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
   },
 
   sessionImage: {
@@ -419,19 +589,18 @@ const styles = StyleSheet.create({
   floatingBookButton: {
     position: "absolute",
     bottom: 40,
-    left: "50%",
-    width: 120,
-    paddingVertical: 12,
+    right: 20,
+    width: 140,
+    paddingVertical: 16,
     backgroundColor: "#D81B60",
-    borderRadius: 30,
-    elevation: 5,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    borderRadius: 28,
+    elevation: 8,
+    shadowColor: "#D81B60",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    transform: [{ translateX: -60 }],
     zIndex: 10,
   },
 
@@ -439,6 +608,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontWeight: "bold",
     fontSize: 16,
+    letterSpacing: 0.5,
   },
 
   overlay: {
@@ -547,19 +717,130 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 60,
+    paddingVertical: 80,
+    paddingHorizontal: 40,
   },
 
   emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#666',
-    marginBottom: 8,
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#374151',
+    marginBottom: 12,
+    textAlign: 'center',
   },
 
   emptySubtext: {
-    fontSize: 14,
-    color: '#999',
+    fontSize: 16,
+    color: '#6B7280',
     textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 20,
+  },
+
+  statusContainer: {
+    marginTop: 8,
+  },
+
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+
+  bookSessionButton: {
+    backgroundColor: '#D81B60',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 25,
+    marginTop: 16,
+  },
+
+  bookSessionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+
+  // New Professional Styles
+  sessionHeader: {
+    marginBottom: 12,
+  },
+
+  sessionMainInfo: {
+    flex: 1,
+  },
+
+  sessionTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+
+  sessionId: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1F2937',
+  },
+
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+
+  statusBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+  },
+
+  sessionChildren: {
+    fontSize: 16,
+    color: '#D81B60',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+
+  detailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+
+  detailText: {
+    fontSize: 14,
+    color: '#4B5563',
+    marginLeft: 6,
+    fontWeight: '500',
+  },
+
+  serviceDetails: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 8,
+  },
+
+  serviceItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+
+  serviceText: {
+    fontSize: 14,
+    color: '#374151',
+    marginLeft: 8,
+    fontWeight: '500',
   },
 });

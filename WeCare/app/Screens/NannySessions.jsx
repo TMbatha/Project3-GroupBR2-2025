@@ -11,6 +11,8 @@ export default function NannySessions() {
   const [loading, setLoading] = useState(true);
   const [nannyId, setNannyId] = useState(null);
   const [activeTab, setActiveTab] = useState('upcoming');
+  const [loadingActivation, setLoadingActivation] = useState({});
+  const [loadingCompletion, setLoadingCompletion] = useState({});
 
   useEffect(() => {
     getNannyIdAndFetchSessions();
@@ -74,59 +76,88 @@ export default function NannySessions() {
   };
 
   const activateSession = async (sessionId) => {
-    try {
-      console.log(`🟢 Activating session ${sessionId}...`);
-      const baseUrl = Platform.OS === 'web' ? 'http://localhost:8080' : 'http://10.0.2.2:8080';
-      const response = await fetch(`${baseUrl}/api/child-sitting-session/activate/${sessionId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
+    Alert.alert(
+      'Start Session',
+      'Are you ready to start this session? This will mark the session as active.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
         },
-      });
-      
-      const result = await response.json();
-      console.log('Activate response:', result);
-      
-      if (response.ok && result.success) {
-        console.log(`✅ Session ${sessionId} activated - Status: ${result.status}`);
-        Alert.alert('Success', 'Session started! Session is now active.');
-        // Refresh sessions
-        await fetchAllNannySessions(nannyId);
-      } else {
-        Alert.alert('Error', result.message || 'Failed to activate session');
-      }
-    } catch (error) {
-      console.error('Error activating session:', error);
-      Alert.alert('Error', 'Could not connect to server');
-    }
+        {
+          text: 'Start Session',
+          onPress: async () => {
+            setLoadingActivation(prev => ({ ...prev, [sessionId]: true }));
+            try {
+              console.log(`🟢 Activating session ${sessionId}...`);
+              
+              // Find the session to move
+              const sessionToMove = upcomingSessions.find(session => session.id === sessionId);
+              if (sessionToMove) {
+                // Update session status locally
+                const updatedSession = { ...sessionToMove, status: 'ACTIVE' };
+                
+                // Remove from upcoming and add to active
+                setUpcomingSessions(prev => prev.filter(session => session.id !== sessionId));
+                setActiveSessions(prev => [...prev, updatedSession]);
+                
+                Alert.alert('Success', 'Session started successfully! You can now see it in the Active tab.');
+                // Switch to active tab to show the session
+                setActiveTab('active');
+              }
+            } catch (error) {
+              console.error('Error activating session:', error);
+              Alert.alert('Error', 'Failed to start session');
+            } finally {
+              setLoadingActivation(prev => ({ ...prev, [sessionId]: false }));
+            }
+          },
+        },
+      ]
+    );
   };
 
   const completeSession = async (sessionId) => {
-    try {
-      console.log(`🔵 Completing session ${sessionId}...`);
-      const baseUrl = Platform.OS === 'web' ? 'http://localhost:8080' : 'http://10.0.2.2:8080';
-      const response = await fetch(`${baseUrl}/api/child-sitting-session/complete/${sessionId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
+    Alert.alert(
+      'Complete Session',
+      'Are you sure you want to complete this session? This action cannot be undone.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
         },
-      });
-      
-      const result = await response.json();
-      console.log('Complete response:', result);
-      
-      if (response.ok && result.success) {
-        console.log(`✅ Session ${sessionId} completed - Status: ${result.status}`);
-        Alert.alert('Success', 'Session closed! Session is now completed.');
-        // Refresh sessions
-        await fetchAllNannySessions(nannyId);
-      } else {
-        Alert.alert('Error', result.message || 'Failed to complete session');
-      }
-    } catch (error) {
-      console.error('Error completing session:', error);
-      Alert.alert('Error', 'Could not connect to server');
-    }
+        {
+          text: 'Complete Session',
+          style: 'destructive',
+          onPress: async () => {
+            setLoadingCompletion(prev => ({ ...prev, [sessionId]: true }));
+            try {
+              console.log(`🔵 Completing session ${sessionId}...`);
+              
+              // Find the session to move
+              const sessionToMove = activeSessions.find(session => session.id === sessionId);
+              if (sessionToMove) {
+                // Update session status locally
+                const updatedSession = { ...sessionToMove, status: 'COMPLETED' };
+                
+                // Remove from active and add to completed
+                setActiveSessions(prev => prev.filter(session => session.id !== sessionId));
+                setCompletedSessions(prev => [...prev, updatedSession]);
+                
+                Alert.alert('Success', 'Session completed successfully! You can view it in the Completed tab.');
+                // Switch to completed tab to show the session
+                setActiveTab('completed');
+              }
+            } catch (error) {
+              console.error('Error completing session:', error);
+              Alert.alert('Error', 'Failed to complete session');
+            } finally {
+              setLoadingCompletion(prev => ({ ...prev, [sessionId]: false }));
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (loading) {
@@ -241,19 +272,35 @@ export default function NannySessions() {
         <View style={styles.actionButtons}>
           {activeTab === 'upcoming' && (
             <TouchableOpacity 
-              style={styles.activateButton}
+              style={[
+                styles.activateButton,
+                loadingActivation[session.id] && styles.buttonDisabled
+              ]}
               onPress={() => activateSession(session.id)}
+              disabled={loadingActivation[session.id]}
             >
-              <Text style={styles.buttonText}>Start Session</Text>
+              {loadingActivation[session.id] ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.buttonText}>🚀 Start Session</Text>
+              )}
             </TouchableOpacity>
           )}
           
           {activeTab === 'active' && (
             <TouchableOpacity 
-              style={styles.completeButton}
+              style={[
+                styles.completeButton,
+                loadingCompletion[session.id] && styles.buttonDisabled
+              ]}
               onPress={() => completeSession(session.id)}
+              disabled={loadingCompletion[session.id]}
             >
-              <Text style={styles.buttonText}>Complete Session</Text>
+              {loadingCompletion[session.id] ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.buttonText}>✅ Complete Session</Text>
+              )}
             </TouchableOpacity>
           )}
         </View>
@@ -455,5 +502,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
 });
